@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>吃啥? - 北醫吃飯選擇障礙小幫手 v1.1.3</title>
+  <title>吃啥? - 北醫吃飯選擇障礙小幫手 v1.1.6</title>
   
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -65,6 +65,7 @@
       <p class="text-xs text-slate-500 dark:text-slate-400 mt-1.5 font-medium tracking-wide uppercase">北醫吃飯選擇障礙小幫手</p>
     </header>
 
+    <!-- 1. 篩選面板 -->
     <section class="bg-white dark:bg-slate-800 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-700 mb-6 transition-all duration-300 overflow-hidden">
       <div id="filter-summary" class="hidden p-5 flex justify-between items-center cursor-pointer active:bg-slate-50 dark:active:bg-slate-700/50 transition-colors">
         <span class="text-sm font-bold text-slate-700 dark:text-slate-200 flex items-center gap-2">
@@ -79,32 +80,31 @@
             <div>
               <div class="flex justify-between items-end mb-2">
                 <label class="text-sm font-bold text-slate-700 dark:text-slate-300">想吃哪類？</label>
-                <button id="btn-toggle-all-cats" class="text-xs text-amber-600 dark:text-amber-400 hover:text-amber-700 font-bold active:scale-95 transition-transform">全選 / 全消</button>
+                <button id="btn-toggle-all-cats" class="text-xs text-amber-600 dark:text-amber-400 hover:text-amber-700 font-bold active:scale-95 transition-transform">全部取消</button>
               </div>
-              <div class="flex flex-wrap gap-2" id="category-chips"></div>
+              <!-- 改為用容器包裝分類按鈕，供 JS 渲染多行 -->
+              <div id="category-chips" class="flex flex-col gap-2"></div>
             </div>
 
             <div>
               <div class="flex justify-between items-end mb-2">
-                <label class="text-sm font-bold text-slate-700 dark:text-slate-300">想走多遠？</label>
-                <span class="text-[11px] text-slate-400 dark:text-slate-500 font-medium" id="dist-hint">全部路程皆可</span>
+                <label class="text-sm font-bold text-slate-700 dark:text-slate-300">能走多遠？</label>
               </div>
               <div class="grid grid-cols-3 gap-2" id="filter-dist-group">
-                <button data-val="1" class="filter-dist-btn py-2.5 text-xs rounded-2xl border transition-all active:scale-95">超級近</button>
-                <button data-val="2" class="filter-dist-btn py-2.5 text-xs rounded-2xl border transition-all active:scale-95">走一下</button>
-                <button data-val="3" class="filter-dist-btn py-2.5 text-xs rounded-2xl border transition-all active:scale-95">有點遠</button>
+                <button data-val="1" class="filter-dist-btn py-2.5 text-xs rounded-2xl border transition-all active:scale-95">附近就好 🚶</button>
+                <button data-val="2" class="filter-dist-btn py-2.5 text-xs rounded-2xl border transition-all active:scale-95">走一段路 🏃</button>
+                <button data-val="3" class="filter-dist-btn py-2.5 text-xs rounded-2xl border transition-all active:scale-95">需要交通 🚌</button>
               </div>
             </div>
 
             <div>
               <div class="flex justify-between items-end mb-2">
                 <label class="text-sm font-bold text-slate-700 dark:text-slate-300">預算級別？</label>
-                <span class="text-[11px] text-slate-400 dark:text-slate-500 font-medium" id="price-hint">已選預算區間</span>
               </div>
               <div class="grid grid-cols-3 gap-2" id="filter-price-group">
-                <button data-val="1" class="filter-price-btn py-2.5 text-xs rounded-2xl border transition-all active:scale-95">＄ (平價)</button>
-                <button data-val="2" class="filter-price-btn py-2.5 text-xs rounded-2xl border transition-all active:scale-95">＄＄ (常規)</button>
-                <button data-val="3" class="filter-price-btn py-2.5 text-xs rounded-2xl border transition-all active:scale-95">＄＄＄ (大餐)</button>
+                <button data-val="1" class="filter-price-btn py-2.5 text-xs rounded-2xl border transition-all active:scale-95">＄ ≤150</button>
+                <button data-val="2" class="filter-price-btn py-2.5 text-xs rounded-2xl border transition-all active:scale-95">＄＄ 151-300</button>
+                <button data-val="3" class="filter-price-btn py-2.5 text-xs rounded-2xl border transition-all active:scale-95">＄＄＄ 300+</button>
               </div>
             </div>
 
@@ -115,7 +115,7 @@
               </label>
               <label class="flex items-center gap-2 cursor-pointer w-fit group">
                 <input type="checkbox" id="filter-open-now" checked class="w-5 h-5 accent-amber-500 rounded cursor-pointer transition-transform group-active:scale-90">
-                <span class="text-sm font-bold text-slate-700 dark:text-slate-300">自動排除「目前休息中」的店家</span>
+                <span class="text-sm font-bold text-slate-700 dark:text-slate-300">排除休息中的店家</span>
               </label>
             </div>
           </div>
@@ -123,6 +123,7 @@
       </div>
     </section>
 
+    <!-- 2. 抽籤展示區 -->
     <section class="bg-white dark:bg-slate-800 rounded-3xl p-5 shadow-sm border border-slate-100 dark:border-slate-700 mb-6 text-center">
       <div class="flex items-center justify-between text-sm text-slate-500 dark:text-slate-400 mb-4 px-1">
         <span class="font-medium">候選庫：<strong id="candidate-count" class="text-amber-600 dark:text-amber-400 text-lg mx-1">0</strong>家</span>
@@ -145,13 +146,18 @@
       </div>
     </section>
 
+    <!-- 3. 結果卡片 -->
     <div id="result-card" class="hidden relative overflow-hidden bg-white dark:bg-slate-800 border-2 border-amber-200 dark:border-amber-500/30 rounded-3xl p-6 mb-6 text-center shadow-lg transform transition-all duration-500 scale-95 opacity-0">
       <div class="absolute inset-0 bg-gradient-to-br from-amber-50/50 to-orange-50/50 dark:from-amber-900/10 dark:to-orange-900/10 pointer-events-none"></div>
       <div class="relative z-10">
-        <div class="flex justify-center items-center gap-2 mb-3">
-          <div class="text-xs font-bold text-amber-600 dark:text-amber-500 tracking-widest">🎉 推薦首選</div>
-          <div id="result-status-badge" class="px-2 py-0.5 rounded-lg text-[10px] font-bold"></div>
+        <div class="flex justify-between items-start mb-3">
+          <div class="flex items-center gap-2">
+            <div class="text-xs font-bold text-amber-600 dark:text-amber-500 tracking-widest mt-1">🎉 推薦首選</div>
+            <div id="result-status-badge" class="px-2 py-0.5 rounded-lg text-[10px] font-bold mt-1"></div>
+          </div>
+          <button id="btn-result-fav" class="text-3xl transition-transform active:scale-75 drop-shadow-sm p-1" title="加入/移除收藏">★</button>
         </div>
+
         <h3 id="result-name" class="text-2xl font-black text-slate-900 dark:text-white mb-3 leading-tight"></h3>
         <div id="result-cat" class="inline-block text-xs font-bold px-3.5 py-1.5 rounded-xl mb-4 border"></div>
         <div class="text-sm text-slate-700 dark:text-slate-300 mb-4 flex justify-center gap-6 font-medium bg-slate-50 dark:bg-slate-900/50 py-2.5 rounded-2xl mx-2 border border-slate-100 dark:border-slate-700/50">
@@ -164,10 +170,25 @@
       </div>
     </div>
 
-    <!-- 4. 管理名單 -->
+    <!-- 4. 我的店家 (常駐顯示，弱化標題，專注內容) -->
+    <div class="bg-white dark:bg-slate-800 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-700 mb-6 p-5">
+      <div class="flex justify-between items-center mb-3 pb-3 border-b border-slate-100 dark:border-slate-700/50">
+        <span class="text-sm font-bold text-slate-700 dark:text-slate-200">📋 我的店家</span>
+        <span class="text-xs text-slate-400 font-bold"><span id="total-count">0</span> 家</span>
+      </div>
+      
+      <div class="mb-3 relative">
+        <span class="absolute inset-y-0 left-3 flex items-center text-slate-400">🔍</span>
+        <input type="text" id="input-search-store" placeholder="搜尋店名或分類..." class="w-full pl-9 pr-4 py-2 text-sm rounded-xl border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:border-amber-400 outline-none transition-colors">
+      </div>
+
+      <div id="full-store-list" class="space-y-2 max-h-[300px] overflow-y-auto no-scrollbar scroll-mask pr-1 pb-2"></div>
+    </div>
+
+    <!-- 5. 編輯與管理口袋名單 (預設收合) -->
     <div class="bg-white dark:bg-slate-800 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-700 mb-6 overflow-hidden">
       <div class="p-5 font-bold text-slate-700 dark:text-slate-200 cursor-pointer flex justify-between items-center active:bg-slate-50 dark:active:bg-slate-700/50 transition-colors" id="btn-toggle-manager">
-        <span class="text-sm">📋 編輯口袋名單 (<span id="total-count">0</span>)</span>
+        <span class="text-sm">➕ 新增店家與進階管理</span>
         <span class="text-slate-400 text-lg transition-transform duration-300" id="icon-manager">+</span>
       </div>
 
@@ -194,10 +215,14 @@
               <div>
                 <label class="text-xs font-bold text-slate-500 dark:text-slate-400 block mb-1.5">分類：</label>
                 <select id="add-cat" class="w-full p-2.5 text-sm rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 outline-none">
-                  <option value="早餐">早餐</option><option value="飯類">飯類</option>
-                  <option value="麵類">麵類</option><option value="點心">點心</option>
-                  <option value="手搖">手搖</option><option value="甜點">甜點</option>
-                  <option value="宵夜">宵夜</option><option value="其他">其他</option>
+                  <option value="飯類">飯類</option>
+                  <option value="麵類">麵類</option>
+                  <option value="其他">其他</option>
+                  <option value="早餐">早餐</option>
+                  <option value="點心">點心</option>
+                  <option value="手搖">手搖</option>
+                  <option value="甜點">甜點</option>
+                  <option value="宵夜">宵夜</option>
                 </select>
               </div>
 
@@ -205,30 +230,24 @@
                 <label class="text-xs font-bold text-slate-500 dark:text-slate-400 block mb-1.5">營業時段 (選填)：</label>
                 <div class="flex items-center gap-2">
                   <div class="flex flex-1 items-center bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-600 rounded-xl overflow-hidden focus-within:border-amber-400 focus-within:ring-1 focus-within:ring-amber-400 transition-colors">
-                    <select id="add-time-sh" class="w-full p-2.5 text-sm bg-transparent outline-none text-center appearance-none cursor-pointer text-slate-800 dark:text-slate-200">
-                      <option value="">時</option>
-                    </select>
+                    <select id="add-time-sh" class="w-full p-2.5 text-sm bg-transparent outline-none text-center appearance-none cursor-pointer text-slate-800 dark:text-slate-200"><option value="">時</option></select>
                     <span class="text-slate-400 font-bold">:</span>
                     <select id="add-time-sm" class="w-full p-2.5 text-sm bg-transparent outline-none text-center appearance-none cursor-pointer text-slate-800 dark:text-slate-200">
                       <option value="">分</option>
-                      <option value="00">00</option><option value="05">05</option><option value="10">10</option>
-                      <option value="15">15</option><option value="20">20</option><option value="25">25</option>
-                      <option value="30">30</option><option value="35">35</option><option value="40">40</option>
-                      <option value="45">45</option><option value="50">50</option><option value="55">55</option>
+                      <option value="00">00</option><option value="05">05</option><option value="10">10</option><option value="15">15</option>
+                      <option value="20">20</option><option value="25">25</option><option value="30">30</option><option value="35">35</option>
+                      <option value="40">40</option><option value="45">45</option><option value="50">50</option><option value="55">55</option>
                     </select>
                   </div>
                   <span class="text-slate-400 font-bold">~</span>
                   <div class="flex flex-1 items-center bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-600 rounded-xl overflow-hidden focus-within:border-amber-400 focus-within:ring-1 focus-within:ring-amber-400 transition-colors">
-                    <select id="add-time-eh" class="w-full p-2.5 text-sm bg-transparent outline-none text-center appearance-none cursor-pointer text-slate-800 dark:text-slate-200">
-                      <option value="">時</option>
-                    </select>
+                    <select id="add-time-eh" class="w-full p-2.5 text-sm bg-transparent outline-none text-center appearance-none cursor-pointer text-slate-800 dark:text-slate-200"><option value="">時</option></select>
                     <span class="text-slate-400 font-bold">:</span>
                     <select id="add-time-em" class="w-full p-2.5 text-sm bg-transparent outline-none text-center appearance-none cursor-pointer text-slate-800 dark:text-slate-200">
                       <option value="">分</option>
-                      <option value="00">00</option><option value="05">05</option><option value="10">10</option>
-                      <option value="15">15</option><option value="20">20</option><option value="25">25</option>
-                      <option value="30">30</option><option value="35">35</option><option value="40">40</option>
-                      <option value="45">45</option><option value="50">50</option><option value="55">55</option>
+                      <option value="00">00</option><option value="05">05</option><option value="10">10</option><option value="15">15</option>
+                      <option value="20">20</option><option value="25">25</option><option value="30">30</option><option value="35">35</option>
+                      <option value="40">40</option><option value="45">45</option><option value="50">50</option><option value="55">55</option>
                     </select>
                   </div>
                 </div>
@@ -238,17 +257,17 @@
                 <div>
                   <label class="text-xs font-bold text-slate-500 dark:text-slate-400 block mb-1.5">路程定義：</label>
                   <div class="flex flex-col gap-1.5" id="add-dist-group">
-                    <button type="button" data-val="1" class="add-dist-btn py-2 text-xs rounded-xl border transition-colors">超級近</button>
-                    <button type="button" data-val="2" class="add-dist-btn py-2 text-xs rounded-xl border transition-colors">走一下</button>
-                    <button type="button" data-val="3" class="add-dist-btn py-2 text-xs rounded-xl border transition-colors">有點遠</button>
+                    <button type="button" data-val="1" class="add-dist-btn py-2 text-xs rounded-xl border transition-colors">附近就好 🚶</button>
+                    <button type="button" data-val="2" class="add-dist-btn py-2 text-xs rounded-xl border transition-colors">走一段路 🏃</button>
+                    <button type="button" data-val="3" class="add-dist-btn py-2 text-xs rounded-xl border transition-colors">需要交通 🚌</button>
                   </div>
                 </div>
                 <div>
                   <label class="text-xs font-bold text-slate-500 dark:text-slate-400 block mb-1.5">預算級別：</label>
                   <div class="flex flex-col gap-1.5" id="add-price-group">
-                    <button type="button" data-val="1" class="add-price-btn py-2 text-xs rounded-xl border transition-colors">＄</button>
-                    <button type="button" data-val="2" class="add-price-btn py-2 text-xs rounded-xl border transition-colors">＄＄</button>
-                    <button type="button" data-val="3" class="add-price-btn py-2 text-xs rounded-xl border transition-colors">＄＄＄</button>
+                    <button type="button" data-val="1" class="add-price-btn py-2 text-xs rounded-xl border transition-colors">＄ ≤150</button>
+                    <button type="button" data-val="2" class="add-price-btn py-2 text-xs rounded-xl border transition-colors">＄＄ 151-300</button>
+                    <button type="button" data-val="3" class="add-price-btn py-2 text-xs rounded-xl border transition-colors">＄＄＄ 300+</button>
                   </div>
                 </div>
               </div>
@@ -271,25 +290,16 @@
               </button>
             </form>
 
-            <div class="mt-6 border-t border-slate-100 dark:border-slate-700 pt-4">
-              <div class="flex justify-between items-end mb-3">
-                <span class="text-xs font-bold text-slate-500 dark:text-slate-400">清單總覽 (自動分類排序)</span>
-                <button id="btn-reset-data" class="text-[10px] text-slate-400 hover:text-rose-500 underline transition-colors">還原初始名單</button>
-              </div>
-              
-              <div class="mb-3 relative">
-                <span class="absolute inset-y-0 left-3 flex items-center text-slate-400">🔍</span>
-                <input type="text" id="input-search-store" placeholder="搜尋店名或分類..." class="w-full pl-9 pr-4 py-2.5 text-sm rounded-xl border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:border-amber-400 outline-none transition-colors">
-              </div>
-
-              <div id="full-store-list" class="space-y-2 max-h-72 overflow-y-auto no-scrollbar scroll-mask pr-1 pb-4"></div>
+            <div class="mt-4 pt-4 border-t border-slate-100 dark:border-slate-700 flex justify-between items-center">
+                <span class="text-xs text-slate-500 dark:text-slate-400 font-medium">進階操作</span>
+                <button id="btn-reset-data" class="text-xs text-rose-500 hover:text-rose-600 font-bold transition-colors">還原初始預設名單</button>
             </div>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- 5. 系統說明 -->
+    <!-- 6. 系統說明 -->
     <div class="bg-white dark:bg-slate-800 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-700 mb-6 overflow-hidden">
       <div class="p-5 font-bold text-slate-700 dark:text-slate-200 cursor-pointer flex justify-between items-center active:bg-slate-50 dark:active:bg-slate-700/50 transition-colors" id="btn-toggle-info">
         <span class="text-sm flex items-center gap-1.5"><span>📖</span> 系統說明與選項定義</span>
@@ -300,11 +310,11 @@
         <div class="overflow-hidden">
           <div class="px-5 pb-5 pt-1 space-y-4 text-xs leading-relaxed border-t border-slate-100 dark:border-slate-700 text-slate-600 dark:text-slate-400">
             <div>
-              <div class="font-bold text-slate-800 dark:text-slate-200 mb-1">🚶 路程等級</div>
+              <div class="font-bold text-slate-800 dark:text-slate-200 mb-1">🚶 能走多遠？</div>
               <div class="grid grid-cols-1 gap-1 pl-2 border-l-2 border-amber-300 dark:border-amber-600">
-                <p><span class="font-bold">超級近：</span>1 小時內可步行抵達、用餐完畢並順利返回。</p>
-                <p><span class="font-bold">走一下：</span>空堂或沒課時，可悠閒步行 10-15 分鐘之範圍。</p>
-                <p><span class="font-bold">有點遠：</span>步行 30 分鐘以上，或需搭乘捷運、公車、騎車抵達。</p>
+                <p><span class="font-bold">附近就好 🚶：</span>1 小時內可步行抵達、用餐完畢並順利返回。</p>
+                <p><span class="font-bold">走一段路 🏃：</span>空堂或沒課時，步行/小跑步 10-15 分鐘之範圍。</p>
+                <p><span class="font-bold">需要交通 🚌：</span>步行 30 分鐘以上，或需搭乘捷運、公車、騎車抵達。</p>
               </div>
             </div>
             <div>
@@ -315,23 +325,13 @@
                 <p><span class="font-bold">＄＄＄：</span>300 元以上（犒賞大餐、聚會鍋物、精緻料理）。</p>
               </div>
             </div>
-            <div>
-              <div class="font-bold text-slate-800 dark:text-slate-200 mb-1">💡 篩選與運作原則</div>
-              <div class="space-y-1.5">
-                <p>• <strong class="text-slate-700 dark:text-slate-300">其他</strong>：火鍋、速食漢堡、牛排、義大利麵等非純飯/麵為主的飽足正餐均可歸於此類。</p>
-                <p>• <strong class="text-slate-700 dark:text-slate-300">營業時間智慧判斷</strong>：系統會比對「目前時間」與「店家時段」，並自動判斷是否營業。支援跨夜時段（如 18:00-02:00）。</p>
-                <p>• <strong class="text-slate-700 dark:text-slate-300">自動排除休息店家</strong>：勾選後，會將當下判斷為「休息中」或「公休」的店家移出候選名單，讓抽出來的店家有開。</p>
-                <p>• <strong class="text-slate-700 dark:text-slate-300">預算獨立開關</strong>：若只想吃大餐可單獨點選「＄＄＄」；若想在平價與大餐間二選一可同時複選「＄」與「＄＄＄」。</p>
-                <p>• <strong class="text-slate-700 dark:text-slate-300">本機儲存與 PWA</strong>：所有名單均保留於瀏覽器中。您也可將此網頁「加入主畫面」，獲得如同原生 App 的全螢幕使用體驗。</p>
-              </div>
-            </div>
           </div>
         </div>
       </div>
     </div>
 
     <footer class="text-slate-400 dark:text-slate-500 text-[10px] text-center space-y-1 mb-6">
-      <div class="font-bold">© 2026 TMU Campus Food Decider v1.1.3</div>
+      <div class="font-bold">© 2026 TMU Campus Food Decider v1.1.6</div>
       <div>相關資料來源為網路資料 · 僅供參考</div>
     </footer>
   </div>
@@ -368,7 +368,7 @@
       { id: "20", name: "吳興街麵店", cat: "麵類", priceLevel: 1, distLevel: 1, openDays: [1,2,3,4,5,6], hours: "11:30–19:30" },
       { id: "21", name: "爭鮮迴轉壽司 北醫店", cat: "飯類", priceLevel: 2, distLevel: 1, openDays: [1,2,3,4,5,6,7], hours: "11:00–21:30" },
       { id: "22", name: "府城鵝肉店", cat: "麵類", priceLevel: 1, distLevel: 1, openDays: [1,2,3,4,5,6], hours: "11:30–21:30" },
-      { id: "23", name: "超商食物", cat: "其他", priceLevel: 1, distLevel: 1, openDays: [1,2,3,4,5,6,7], hours: "24hr" },
+      { id: "23", name: "超商", cat: "其他", priceLevel: 1, distLevel: 1, openDays: [1,2,3,4,5,6,7], hours: "24hr" },
       { id: "24", name: "甘泉魚麵北醫店", cat: "麵類", priceLevel: 1, distLevel: 1, openDays: [1,2,3,4,5,6], hours: "11:00–20:15" },
       { id: "25", name: "微想咖哩", cat: "飯類", priceLevel: 1, distLevel: 1, openDays: [1,2,3,4,5,6,7], hours: "11:30–14:30, 17:00–21:00" },
       { id: "26", name: "冰山一角冰品店", cat: "甜點", priceLevel: 1, distLevel: 1, openDays: [1,2,3,4,5,6], hours: "11:00–01:30" },
@@ -449,17 +449,62 @@
     ];
 
     (() => {
-      // 產生下拉選單的小時選項 (00~23)
       const hourOptions = Array.from({length: 24}, (_, i) => `<option value="${String(i).padStart(2, '0')}">${String(i).padStart(2, '0')}</option>`).join('');
       document.getElementById('add-time-sh').innerHTML += hourOptions;
       document.getElementById('add-time-eh').innerHTML += hourOptions;
 
+      const CAT_THEMES = {
+        "飯類": "bg-orange-50 text-orange-900 dark:bg-orange-900/30 dark:text-orange-300 border-orange-200 dark:border-orange-800",
+        "麵類": "bg-red-50 text-red-900 dark:bg-red-900/30 dark:text-red-300 border-red-200 dark:border-red-800",
+        "其他": "bg-slate-100 text-slate-800 dark:bg-slate-700/50 dark:text-slate-300 border-slate-200 dark:border-slate-600",
+        "早餐": "bg-yellow-50 text-yellow-900 dark:bg-yellow-900/30 dark:text-yellow-300 border-yellow-200 dark:border-yellow-800",
+        "點心": "bg-pink-50 text-pink-900 dark:bg-pink-900/30 dark:text-pink-300 border-pink-200 dark:border-pink-800",
+        "手搖": "bg-teal-50 text-teal-900 dark:bg-teal-900/30 dark:text-teal-300 border-teal-200 dark:border-teal-800",
+        "甜點": "bg-purple-50 text-purple-900 dark:bg-purple-900/30 dark:text-purple-300 border-purple-200 dark:border-purple-800",
+        "宵夜": "bg-indigo-50 text-indigo-900 dark:bg-indigo-900/30 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800"
+      };
+      
+      const ALL_CATS = Object.keys(CAT_THEMES);
+      const DIST_LABELS = { 1: "附近就好 🚶", 2: "走一段路 🏃", 3: "需要交通 🚌" };
+      const PRICE_LABELS = { 1: "＄ ≤150", 2: "＄＄ 151-300", 3: "＄＄＄ 300+" };
+
+      function validateRestaurant(r) {
+        if (!r || typeof r !== 'object') return false;
+        let cat = r.cat === '其他正餐' ? '其他' : r.cat; 
+        return (
+          typeof r.name === 'string' && r.name.trim() !== '' &&
+          ALL_CATS.includes(cat) &&
+          [1, 2, 3].includes(Number(r.priceLevel)) &&
+          [1, 2, 3].includes(Number(r.distLevel)) &&
+          Array.isArray(r.openDays)
+        );
+      }
+
       class AppState {
         constructor() {
-          this.restaurants = JSON.parse(localStorage.getItem('my_lunch_tmu_100')) || [...DEFAULT_DATA];
-          this.restaurants = this.restaurants.map(r => ({...r, isFavorite: r.isFavorite || false}));
+          let rawData = localStorage.getItem('my_lunch_tmu_100');
+          let parsed = rawData ? JSON.parse(rawData) : null;
+          let dataList = [];
           
-          this.selectedCats = new Set(["早餐", "飯類", "麵類", "點心", "手搖", "甜點", "宵夜", "其他"]);
+          if (parsed && parsed.version === 1) {
+            dataList = parsed.data;
+          } else if (Array.isArray(parsed)) {
+            dataList = parsed;
+          } else {
+            dataList = [...DEFAULT_DATA];
+          }
+
+          // 資料清洗，將上一版舊有的其他正餐轉換回其他
+          this.restaurants = dataList.map(r => ({
+            ...r,
+            cat: r.cat === '其他正餐' ? '其他' : r.cat,
+            hours: r.hours || '?',
+            isFavorite: r.isFavorite || false
+          }));
+          
+          this.save(); 
+
+          this.selectedCats = new Set(ALL_CATS);
           this.selectedMaxDist = 3;
           this.selectedPrices = new Set([1, 2, 3]);
           this.newStoreDist = 2;
@@ -467,25 +512,12 @@
           this.filteredList = [];
           this.isSpinning = false;
         }
-        save() { localStorage.setItem('my_lunch_tmu_100', JSON.stringify(this.restaurants)); }
+        save() { 
+          localStorage.setItem('my_lunch_tmu_100', JSON.stringify({ version: 1, data: this.restaurants })); 
+        }
       }
 
       const state = new AppState();
-      
-      const CAT_THEMES = {
-        "早餐": "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-300 border-yellow-200 dark:border-yellow-800",
-        "飯類": "bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-300 border-orange-200 dark:border-orange-800",
-        "麵類": "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300 border-red-200 dark:border-red-800",
-        "點心": "bg-pink-100 text-pink-800 dark:bg-pink-900/40 dark:text-pink-300 border-pink-200 dark:border-pink-800",
-        "手搖": "bg-teal-100 text-teal-800 dark:bg-teal-900/40 dark:text-teal-300 border-teal-200 dark:border-teal-800",
-        "甜點": "bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300 border-purple-200 dark:border-purple-800",
-        "宵夜": "bg-indigo-100 text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800",
-        "其他": "bg-slate-100 text-slate-700 dark:bg-slate-700/60 dark:text-slate-300 border-slate-200 dark:border-slate-600"
-      };
-      
-      const ALL_CATS = Object.keys(CAT_THEMES);
-      const DIST_LABELS = { 1: "超級近", 2: "走一下", 3: "有點遠" };
-      const PRICE_LABELS = { 1: "＄ (≤150)", 2: "＄＄ (151-300)", 3: "＄＄＄ (>300)" };
 
       const escapeHTML = (str) => {
         if (!str) return '';
@@ -580,19 +612,36 @@
 
       function renderFilters() {
         const chipsContainer = document.getElementById('category-chips');
-        chipsContainer.innerHTML = '';
-        ALL_CATS.forEach(cat => {
-          const btn = document.createElement('button');
-          btn.textContent = cat;
-          const isChecked = state.selectedCats.has(cat);
-          btn.className = `px-3 py-1.5 text-xs rounded-xl border font-bold transition-all active:scale-95 ${isChecked ? CAT_THEMES[cat] : 'bg-slate-50 dark:bg-slate-800 text-slate-400 border-slate-200 dark:border-slate-700'}`;
-          btn.onclick = () => {
-            vibrate(5);
-            state.selectedCats.has(cat) ? state.selectedCats.delete(cat) : state.selectedCats.add(cat);
-            renderFilters(); applyFilters();
-          };
-          chipsContainer.appendChild(btn);
-        });
+        
+        // 依照正餐與非正餐換行區分
+        const mealCats = ["飯類", "麵類", "其他", "早餐"];
+        const snackCats = ["點心", "手搖", "甜點", "宵夜"];
+
+        chipsContainer.innerHTML = `
+          <div class="flex flex-wrap gap-2 mb-2 pb-2 border-b border-slate-100 dark:border-slate-700/50 w-full" id="meal-chips"></div>
+          <div class="flex flex-wrap gap-2 w-full" id="snack-chips"></div>
+        `;
+
+        const renderGroup = (cats, targetId) => {
+          const target = document.getElementById(targetId);
+          cats.forEach(cat => {
+            const btn = document.createElement('button');
+            btn.textContent = cat;
+            const isChecked = state.selectedCats.has(cat);
+            btn.className = `px-3 py-1.5 text-xs rounded-xl border font-bold transition-all active:scale-95 ${isChecked ? CAT_THEMES[cat] : 'bg-slate-50 dark:bg-slate-800 text-slate-400 border-slate-200 dark:border-slate-700'}`;
+            btn.onclick = () => {
+              vibrate(5);
+              state.selectedCats.has(cat) ? state.selectedCats.delete(cat) : state.selectedCats.add(cat);
+              renderFilters(); applyFilters();
+            };
+            target.appendChild(btn);
+          });
+        };
+
+        renderGroup(mealCats, 'meal-chips');
+        renderGroup(snackCats, 'snack-chips');
+
+        document.getElementById('btn-toggle-all-cats').textContent = state.selectedCats.size === ALL_CATS.length ? '全部取消' : '全部選取';
 
         document.querySelectorAll('.filter-dist-btn').forEach(btn => {
           btn.className = Number(btn.dataset.val) === state.selectedMaxDist
@@ -658,7 +707,7 @@
             </span>
             <div class="flex items-center gap-3 shrink-0">
               <span class="text-[10px]">${getOpenStatus(r.hours, r.openDays).badge}</span>
-              <span class="text-slate-400 dark:text-slate-500 font-medium">${DIST_LABELS[r.distLevel]}</span>
+              <span class="text-slate-400 dark:text-slate-500 font-medium text-[10px]">${DIST_LABELS[r.distLevel]}</span>
             </div>
           `;
           frag.appendChild(div);
@@ -691,7 +740,7 @@
           div.className = "flex items-center justify-between p-3 rounded-2xl bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 shadow-sm";
           div.innerHTML = `
             <div class="flex items-center gap-3 overflow-hidden">
-              <button class="fav-btn flex-shrink-0 text-xl transition-transform active:scale-75 ${r.isFavorite ? 'text-amber-400 drop-shadow-sm' : 'text-slate-200 dark:text-slate-700'}">★</button>
+              <button class="fav-btn flex-shrink-0 text-xl transition-transform active:scale-75 ${r.isFavorite ? 'text-amber-400 drop-shadow-sm' : 'text-slate-200 dark:text-slate-700 hover:text-slate-300'}">★</button>
               <div class="overflow-hidden pr-2">
                 <div class="flex items-center gap-1.5 truncate mb-1">
                   <span class="text-[10px] font-bold px-1.5 py-0.5 rounded border ${CAT_THEMES[r.cat]} shrink-0">${escapeHTML(r.cat)}</span>
@@ -817,7 +866,7 @@
       };
 
       document.getElementById('btn-export-data').onclick = () => {
-        const blob = new Blob([JSON.stringify(state.restaurants, null, 2)], { type: "application/json" });
+        const blob = new Blob([JSON.stringify({version: 1, data: state.restaurants}, null, 2)], { type: "application/json" });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a'); a.href = url; a.download = `tmu_food_decider_${new Date().toISOString().slice(0,10)}.json`;
         document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
@@ -829,13 +878,24 @@
         const reader = new FileReader();
         reader.onload = (event) => {
           try {
-            const data = JSON.parse(event.target.result);
-            if (Array.isArray(data) && data.length > 0 && data[0].name) {
-              state.restaurants = data.map(r => ({...r, isFavorite: r.isFavorite || false})); 
+            const imported = JSON.parse(event.target.result);
+            let dataArray = Array.isArray(imported) ? imported : (imported.version === 1 ? imported.data : null);
+
+            if (Array.isArray(dataArray) && dataArray.length > 0 && dataArray.every(validateRestaurant)) {
+              state.restaurants = dataArray.map(r => ({
+                ...r, 
+                cat: r.cat === '其他正餐' ? '其他' : r.cat,
+                hours: r.hours || '?',
+                isFavorite: r.isFavorite || false
+              })); 
               state.save(); applyFilters(); renderManagerList();
               showToast('名單匯入成功！');
-            } else throw new Error();
-          } catch { showToast('檔案格式錯誤，請確認是否為有效 JSON', 'error'); }
+            } else {
+              throw new Error("Invalid Schema");
+            }
+          } catch { 
+            showToast('檔案格式錯誤，請確認是否為本系統匯出的有效 JSON', 'error'); 
+          }
           e.target.value = '';
         };
         reader.readAsText(file);
@@ -850,6 +910,8 @@
       };
 
       const ITEM_HEIGHT = 56;
+      let currentWinner = null;
+
       document.getElementById('btn-spin').onclick = () => {
         if (state.isSpinning || state.filteredList.length === 0) return;
         
@@ -869,10 +931,10 @@
         document.getElementById('result-card').classList.add('hidden', 'scale-95', 'opacity-0');
 
         const winningIndex = Math.floor(Math.random() * state.filteredList.length);
-        const winner = state.filteredList[winningIndex];
+        currentWinner = state.filteredList[winningIndex];
 
         const sequence = Array.from({length: 35 + Math.floor(Math.random() * 10)}, () => state.filteredList[Math.floor(Math.random() * state.filteredList.length)]);
-        sequence.push(winner);
+        sequence.push(currentWinner);
 
         const frag = document.createDocumentFragment();
         sequence.forEach(item => {
@@ -915,19 +977,35 @@
             btnSpin.innerHTML = '🎲 不想吃這個，再抽一次！';
             
             vibrate([50, 50, 150]);
-            document.getElementById('result-name').textContent = winner.name;
+            document.getElementById('result-name').textContent = currentWinner.name;
             const catEl = document.getElementById('result-cat');
-            catEl.textContent = winner.cat;
-            catEl.className = `inline-block text-xs font-bold px-3.5 py-1.5 rounded-xl mb-4 border ${CAT_THEMES[winner.cat]}`;
-            document.getElementById('result-price').textContent = PRICE_LABELS[winner.priceLevel];
-            document.getElementById('result-dist').textContent = DIST_LABELS[winner.distLevel];
-            document.getElementById('result-status-badge').innerHTML = getOpenStatus(winner.hours, winner.openDays).badge;
+            catEl.textContent = currentWinner.cat;
+            catEl.className = `inline-block text-xs font-bold px-3.5 py-1.5 rounded-xl mb-4 border ${CAT_THEMES[currentWinner.cat]}`;
+            document.getElementById('result-price').textContent = PRICE_LABELS[currentWinner.priceLevel];
+            document.getElementById('result-dist').textContent = DIST_LABELS[currentWinner.distLevel];
+            document.getElementById('result-status-badge').innerHTML = getOpenStatus(currentWinner.hours, currentWinner.openDays).badge;
             
             const hoursBox = document.getElementById('result-hours-box');
-            if (winner.hours && winner.hours !== '?') {
-              document.getElementById('result-hours').textContent = winner.hours;
+            if (currentWinner.hours && currentWinner.hours !== '?') {
+              document.getElementById('result-hours').textContent = currentWinner.hours;
               hoursBox.classList.remove('hidden');
             } else hoursBox.classList.add('hidden');
+
+            const favBtn = document.getElementById('btn-result-fav');
+            const updateResultFavBtnUI = () => {
+              favBtn.className = currentWinner.isFavorite 
+                ? "text-3xl transition-transform active:scale-75 drop-shadow-sm p-1 text-amber-400" 
+                : "text-3xl transition-transform active:scale-75 drop-shadow-sm p-1 text-slate-200 dark:text-slate-700 hover:text-slate-300";
+            };
+            updateResultFavBtnUI();
+            favBtn.onclick = () => {
+              vibrate(5);
+              currentWinner.isFavorite = !currentWinner.isFavorite;
+              state.save();
+              updateResultFavBtnUI();
+              renderManagerList(); 
+              applyFilters();      
+            };
 
             const rc = document.getElementById('result-card');
             rc.classList.remove('hidden');
