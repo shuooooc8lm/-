@@ -459,7 +459,7 @@
           this.restaurants = JSON.parse(localStorage.getItem('my_lunch_tmu_100')) || [...DEFAULT_DATA];
           this.restaurants = this.restaurants.map(r => ({...r, isFavorite: r.isFavorite || false}));
           
-          this.selectedCats = new Set(["早餐", "飯類", "麵類", "點心", "手搖", "甜點", "宵預", "其他"]);
+          this.selectedCats = new Set(["早餐", "飯類", "麵類", "點心", "手搖", "甜點", "宵夜", "其他"]);
           this.selectedMaxDist = 3;
           this.selectedPrices = new Set([1, 2, 3]);
           this.newStoreDist = 2;
