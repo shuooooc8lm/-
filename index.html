@@ -1,0 +1,918 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>吃啥? - 北醫吃飯選擇障礙小幫手</title>
+  
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#f8fafc" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#0f172a" media="(prefers-color-scheme: dark)">
+  <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎲</text></svg>">
+  
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = { darkMode: 'class' }
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+  <style>
+    .slot-frame {
+      box-shadow: inset 0 8px 16px -4px rgba(0, 0, 0, 0.15), inset 0 -8px 16px -4px rgba(0, 0, 0, 0.15);
+    }
+    .dark .slot-frame {
+      box-shadow: inset 0 8px 16px -4px rgba(0, 0, 0, 0.4), inset 0 -8px 16px -4px rgba(0, 0, 0, 0.4);
+    }
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    
+    /* 滾動邊緣漸層遮罩 */
+    .scroll-mask {
+      -webkit-mask-image: linear-gradient(to bottom, transparent, black 12px, black calc(100% - 12px), transparent);
+      mask-image: linear-gradient(to bottom, transparent, black 12px, black calc(100% - 12px), transparent);
+    }
+    
+    /* Grid 展開動畫輔助 */
+    .grid-accordion {
+      display: grid;
+      transition: grid-template-rows 0.3s ease-in-out;
+    }
+  </style>
+</head>
+<body class="bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-200 min-h-screen pb-32 font-sans antialiased selection:bg-amber-200 dark:selection:bg-amber-700 transition-colors duration-300">
+
+  <!-- 全域防護遮罩 (抽籤時阻擋操作) -->
+  <div id="spin-overlay" class="hidden fixed inset-0 z-[60] bg-transparent touch-none"></div>
+
+  <!-- Toast 提示容器 -->
+  <div id="toast-container" class="fixed top-safe pt-4 left-1/2 -translate-x-1/2 z-[70] flex flex-col gap-2 pointer-events-none w-11/12 max-w-sm"></div>
+
+  <!-- 客製化確認對話框 -->
+  <div id="confirm-modal" class="hidden fixed inset-0 z-[80] bg-slate-900/40 dark:bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 opacity-0 transition-opacity duration-300">
+    <div id="confirm-box" class="bg-white dark:bg-slate-800 rounded-3xl p-6 w-full max-w-sm shadow-2xl transform scale-95 transition-transform duration-300 border border-slate-100 dark:border-slate-700">
+      <h3 class="text-lg font-black text-slate-900 dark:text-white mb-2" id="confirm-title">提示</h3>
+      <p class="text-sm text-slate-600 dark:text-slate-400 mb-6 font-medium leading-relaxed" id="confirm-msg"></p>
+      <div class="flex gap-3">
+        <button id="btn-confirm-cancel" class="flex-1 py-3 rounded-xl bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold active:scale-95 transition-all">取消</button>
+        <button id="btn-confirm-ok" class="flex-1 py-3 rounded-xl bg-rose-500 text-white font-bold active:scale-95 transition-all shadow-lg shadow-rose-500/20">確定</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="max-w-md mx-auto px-4 pt-6 pb-2 flex justify-between items-center">
+    <div></div>
+    <button id="theme-toggle" class="px-3 py-1.5 rounded-full bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-bold shadow-sm active:scale-95 transition-all flex items-center gap-1.5 border border-slate-300 dark:border-slate-700">
+      <span id="theme-icon">☀️</span> <span>切換模式</span>
+    </button>
+  </div>
+
+  <div class="max-w-md mx-auto px-4">
+    <header class="text-center mb-6">
+      <h1 class="text-3xl font-black text-slate-900 dark:text-white tracking-tight">吃啥?</h1>
+      <p class="text-xs text-slate-500 dark:text-slate-400 mt-1.5 font-medium tracking-wide uppercase">北醫吃飯選擇障礙小幫手</p>
+    </header>
+
+    <!-- 1. 篩選面板 -->
+    <section class="bg-white dark:bg-slate-800 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-700 mb-6 transition-all duration-300 overflow-hidden">
+      
+      <div id="filter-summary" class="hidden p-5 flex justify-between items-center cursor-pointer active:bg-slate-50 dark:active:bg-slate-700/50 transition-colors">
+        <span class="text-sm font-bold text-slate-700 dark:text-slate-200 flex items-center gap-2">
+          <span>🔍</span> <span>已套用篩選條件</span>
+        </span>
+        <span class="text-[11px] text-amber-600 dark:text-amber-400 font-bold px-3 py-1.5 bg-amber-50 dark:bg-amber-900/30 rounded-xl">點擊展開修改 ▾</span>
+      </div>
+
+      <div id="filter-wrapper" class="grid-accordion" style="grid-template-rows: 1fr;">
+        <div class="overflow-hidden">
+          <div class="p-5 space-y-5">
+            <div>
+              <div class="flex justify-between items-end mb-2">
+                <label class="text-sm font-bold text-slate-700 dark:text-slate-300">想吃哪類？</label>
+                <button id="btn-toggle-all-cats" class="text-xs text-amber-600 dark:text-amber-400 hover:text-amber-700 font-bold active:scale-95 transition-transform">全選 / 全消</button>
+              </div>
+              <div class="flex flex-wrap gap-2" id="category-chips"></div>
+            </div>
+
+            <div>
+              <div class="flex justify-between items-end mb-2">
+                <label class="text-sm font-bold text-slate-700 dark:text-slate-300">想走多遠？</label>
+                <span class="text-[11px] text-slate-400 dark:text-slate-500 font-medium" id="dist-hint">全部路程皆可</span>
+              </div>
+              <div class="grid grid-cols-3 gap-2" id="filter-dist-group">
+                <button data-val="1" class="filter-dist-btn py-2.5 text-xs rounded-2xl border transition-all active:scale-95">超級近</button>
+                <button data-val="2" class="filter-dist-btn py-2.5 text-xs rounded-2xl border transition-all active:scale-95">走一下</button>
+                <button data-val="3" class="filter-dist-btn py-2.5 text-xs rounded-2xl border transition-all active:scale-95">有點遠</button>
+              </div>
+            </div>
+
+            <div>
+              <div class="flex justify-between items-end mb-2">
+                <label class="text-sm font-bold text-slate-700 dark:text-slate-300">預算級別？</label>
+                <span class="text-[11px] text-slate-400 dark:text-slate-500 font-medium" id="price-hint">已選預算區間</span>
+              </div>
+              <div class="grid grid-cols-3 gap-2" id="filter-price-group">
+                <button data-val="1" class="filter-price-btn py-2.5 text-xs rounded-2xl border transition-all active:scale-95">＄ (平價)</button>
+                <button data-val="2" class="filter-price-btn py-2.5 text-xs rounded-2xl border transition-all active:scale-95">＄＄ (常規)</button>
+                <button data-val="3" class="filter-price-btn py-2.5 text-xs rounded-2xl border transition-all active:scale-95">＄＄＄ (大餐)</button>
+              </div>
+            </div>
+
+            <div class="pt-2 border-t border-slate-100 dark:border-slate-700">
+              <label class="flex items-center gap-2 cursor-pointer w-fit group">
+                <input type="checkbox" id="filter-open-now" checked class="w-5 h-5 accent-amber-500 rounded cursor-pointer transition-transform group-active:scale-90">
+                <span class="text-sm font-bold text-slate-700 dark:text-slate-300">自動排除「目前休息中」的店家</span>
+              </label>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 2. 抽籤展示區 -->
+    <section class="bg-white dark:bg-slate-800 rounded-3xl p-5 shadow-sm border border-slate-100 dark:border-slate-700 mb-6 text-center">
+      <div class="flex items-center justify-between text-sm text-slate-500 dark:text-slate-400 mb-4 px-1">
+        <span class="font-medium">候選庫：<strong id="candidate-count" class="text-amber-600 dark:text-amber-400 text-lg mx-1">0</strong>家</span>
+        <button id="btn-toggle-candidates" class="text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 text-xs font-medium underline active:scale-95 transition-transform">展開名單</button>
+      </div>
+
+      <div id="candidate-wrapper" class="grid-accordion" style="grid-template-rows: 0fr;">
+        <div class="overflow-hidden">
+          <div id="candidate-list" class="text-left mb-4 p-4 bg-slate-50 dark:bg-slate-900/50 rounded-2xl text-xs space-y-2 max-h-48 overflow-y-auto no-scrollbar scroll-mask border border-slate-100 dark:border-slate-700/50"></div>
+        </div>
+      </div>
+
+      <div class="relative w-full h-28 bg-slate-50 dark:bg-slate-900 rounded-2xl border-[3px] border-amber-300 dark:border-amber-500/50 overflow-hidden slot-frame transform-gpu">
+        <div class="absolute inset-x-0 top-0 h-8 bg-gradient-to-b from-slate-50 dark:from-slate-900 to-transparent pointer-events-none z-10"></div>
+        <div class="absolute inset-x-0 bottom-0 h-8 bg-gradient-to-t from-slate-50 dark:from-slate-900 to-transparent pointer-events-none z-10"></div>
+        <div class="absolute inset-x-3 top-7 h-14 border-y-[3px] border-dashed border-amber-400/60 dark:border-amber-500/40 pointer-events-none z-10"></div>
+        
+        <div id="slot-strip" class="absolute left-0 w-full flex flex-col items-center will-change-transform" style="top: 28px;">
+          <div class="h-14 flex items-center justify-center text-base font-black text-slate-700 dark:text-slate-200">準備抽籤</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3. 結果卡片 -->
+    <div id="result-card" class="hidden relative overflow-hidden bg-white dark:bg-slate-800 border-2 border-amber-200 dark:border-amber-500/30 rounded-3xl p-6 mb-6 text-center shadow-lg transform transition-all duration-500 scale-95 opacity-0">
+      <div class="absolute inset-0 bg-gradient-to-br from-amber-50/50 to-orange-50/50 dark:from-amber-900/10 dark:to-orange-900/10 pointer-events-none"></div>
+      <div class="relative z-10">
+        <div class="flex justify-center items-center gap-2 mb-3">
+          <div class="text-xs font-bold text-amber-600 dark:text-amber-500 tracking-widest">🎉 推薦首選</div>
+          <div id="result-status-badge" class="px-2 py-0.5 rounded-lg text-[10px] font-bold"></div>
+        </div>
+        <h3 id="result-name" class="text-2xl font-black text-slate-900 dark:text-white mb-3 leading-tight"></h3>
+        <div id="result-cat" class="inline-block text-xs font-bold px-3.5 py-1.5 rounded-xl mb-4 border"></div>
+        <div class="text-sm text-slate-700 dark:text-slate-300 mb-4 flex justify-center gap-6 font-medium bg-slate-50 dark:bg-slate-900/50 py-2.5 rounded-2xl mx-2 border border-slate-100 dark:border-slate-700/50">
+          <span>💰 <strong id="result-price" class="text-amber-600 dark:text-amber-400"></strong></span>
+          <span>🚶 <strong id="result-dist" class="text-amber-600 dark:text-amber-400"></strong></span>
+        </div>
+        <div id="result-hours-box" class="hidden text-xs text-slate-600 dark:text-slate-400 bg-slate-50/80 dark:bg-slate-900/30 py-2 px-4 rounded-xl border border-slate-100 dark:border-slate-700/30 mx-auto inline-block font-medium">
+          🕒 <span id="result-hours"></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 4. 管理名單 (改用 Div + Grid 動畫) -->
+    <div class="bg-white dark:bg-slate-800 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-700 mb-6 overflow-hidden">
+      <div class="p-5 font-bold text-slate-700 dark:text-slate-200 cursor-pointer flex justify-between items-center active:bg-slate-50 dark:active:bg-slate-700/50 transition-colors" id="btn-toggle-manager">
+        <span class="text-sm">📋 編輯口袋名單 (<span id="total-count">0</span>)</span>
+        <span class="text-slate-400 text-lg transition-transform duration-300" id="icon-manager">+</span>
+      </div>
+
+      <div id="manager-wrapper" class="grid-accordion" style="grid-template-rows: 0fr;">
+        <div class="overflow-hidden">
+          <div class="px-5 pb-5 pt-1 border-t border-slate-100 dark:border-slate-700">
+            <div class="flex gap-2 mb-5">
+              <button id="btn-export-data" class="flex-1 py-2 bg-slate-50 dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-700/50 text-slate-600 dark:text-slate-300 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 transition-colors active:scale-95">
+                ⬇️ 匯出 JSON
+              </button>
+              <label class="flex-1 py-2 bg-slate-50 dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-700/50 text-slate-600 dark:text-slate-300 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 text-center cursor-pointer transition-colors active:scale-95">
+                ⬆️ 匯入 JSON
+                <input type="file" id="input-import-data" class="hidden" accept=".json">
+              </label>
+            </div>
+
+            <form id="form-add" class="space-y-4 bg-slate-50 dark:bg-slate-900/50 p-4 rounded-2xl border border-slate-100 dark:border-slate-700">
+              <div class="text-sm font-bold text-slate-700 dark:text-slate-300 mb-2 border-b border-slate-200 dark:border-slate-700 pb-2">➕ 新增店家</div>
+              <div>
+                <label class="text-xs font-bold text-slate-500 dark:text-slate-400 block mb-1.5">店名：</label>
+                <input type="text" id="add-name" required placeholder="例如：金峰滷肉飯" class="w-full p-2.5 text-sm rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:border-amber-400 focus:ring-1 focus:ring-amber-400 outline-none transition-all">
+              </div>
+
+              <div>
+                <label class="text-xs font-bold text-slate-500 dark:text-slate-400 block mb-1.5">分類：</label>
+                <select id="add-cat" class="w-full p-2.5 text-sm rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 outline-none">
+                  <option value="早餐">早餐</option><option value="飯類">飯類</option>
+                  <option value="麵類">麵類</option><option value="點心">點心</option>
+                  <option value="手搖">手搖</option><option value="甜點">甜點</option>
+                  <option value="宵夜">宵夜</option><option value="其他">其他</option>
+                </select>
+              </div>
+
+              <!-- 加入 step="300" (5分鐘) 讓瀏覽器原生的時間選擇器以 5 分鐘為單位跳動 -->
+              <div>
+                <label class="text-xs font-bold text-slate-500 dark:text-slate-400 block mb-1.5">營業時段 (選填)：</label>
+                <div class="flex items-center gap-2">
+                  <input type="time" step="300" id="add-time-start" class="flex-1 p-2.5 text-sm rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 outline-none">
+                  <span class="text-slate-400 font-bold">~</span>
+                  <input type="time" step="300" id="add-time-end" class="flex-1 p-2.5 text-sm rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 outline-none">
+                </div>
+              </div>
+
+              <div class="grid grid-cols-2 gap-4">
+                <div>
+                  <label class="text-xs font-bold text-slate-500 dark:text-slate-400 block mb-1.5">路程定義：</label>
+                  <div class="flex flex-col gap-1.5" id="add-dist-group">
+                    <button type="button" data-val="1" class="add-dist-btn py-2 text-xs rounded-xl border transition-colors">超級近</button>
+                    <button type="button" data-val="2" class="add-dist-btn py-2 text-xs rounded-xl border transition-colors">走一下</button>
+                    <button type="button" data-val="3" class="add-dist-btn py-2 text-xs rounded-xl border transition-colors">有點遠</button>
+                  </div>
+                </div>
+                <div>
+                  <label class="text-xs font-bold text-slate-500 dark:text-slate-400 block mb-1.5">預算級別：</label>
+                  <div class="flex flex-col gap-1.5" id="add-price-group">
+                    <button type="button" data-val="1" class="add-price-btn py-2 text-xs rounded-xl border transition-colors">＄</button>
+                    <button type="button" data-val="2" class="add-price-btn py-2 text-xs rounded-xl border transition-colors">＄＄</button>
+                    <button type="button" data-val="3" class="add-price-btn py-2 text-xs rounded-xl border transition-colors">＄＄＄</button>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <span class="text-xs font-bold text-slate-500 dark:text-slate-400 block mb-2">該店有開的星期：</span>
+                <div class="flex gap-1.5 justify-between">
+                  <label class="flex-1 text-center"><input type="checkbox" name="add-day" value="1" checked class="accent-amber-500 w-4 h-4"><br><span class="text-[10px]">一</span></label>
+                  <label class="flex-1 text-center"><input type="checkbox" name="add-day" value="2" checked class="accent-amber-500 w-4 h-4"><br><span class="text-[10px]">二</span></label>
+                  <label class="flex-1 text-center"><input type="checkbox" name="add-day" value="3" checked class="accent-amber-500 w-4 h-4"><br><span class="text-[10px]">三</span></label>
+                  <label class="flex-1 text-center"><input type="checkbox" name="add-day" value="4" checked class="accent-amber-500 w-4 h-4"><br><span class="text-[10px]">四</span></label>
+                  <label class="flex-1 text-center"><input type="checkbox" name="add-day" value="5" checked class="accent-amber-500 w-4 h-4"><br><span class="text-[10px]">五</span></label>
+                  <label class="flex-1 text-center"><input type="checkbox" name="add-day" value="6" checked class="accent-amber-500 w-4 h-4"><br><span class="text-[10px]">六</span></label>
+                  <label class="flex-1 text-center"><input type="checkbox" name="add-day" value="7" checked class="accent-amber-500 w-4 h-4"><br><span class="text-[10px]">日</span></label>
+                </div>
+              </div>
+
+              <button type="submit" class="w-full py-3 bg-slate-800 dark:bg-slate-700 text-white text-sm font-bold rounded-xl active:scale-95 transition-transform mt-2">
+                儲存店家資料
+              </button>
+            </form>
+
+            <div class="mt-6 border-t border-slate-100 dark:border-slate-700 pt-4">
+              <div class="flex justify-between items-end mb-3">
+                <span class="text-xs font-bold text-slate-500 dark:text-slate-400">清單總覽</span>
+                <button id="btn-reset-data" class="text-[10px] text-slate-400 hover:text-rose-500 underline transition-colors">還原初始預設清單</button>
+              </div>
+              <div id="full-store-list" class="space-y-2 max-h-60 overflow-y-auto no-scrollbar scroll-mask pr-1 pb-4"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 5. 系統說明與選項定義 (已補回完整的說明區塊) -->
+    <div class="bg-white dark:bg-slate-800 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-700 mb-6 overflow-hidden">
+      <div class="p-5 font-bold text-slate-700 dark:text-slate-200 cursor-pointer flex justify-between items-center active:bg-slate-50 dark:active:bg-slate-700/50 transition-colors" id="btn-toggle-info">
+        <span class="text-sm flex items-center gap-1.5"><span>📖</span> 系統說明與選項定義</span>
+        <span class="text-slate-400 text-lg transition-transform duration-300" id="icon-info">+</span>
+      </div>
+
+      <div id="info-wrapper" class="grid-accordion" style="grid-template-rows: 0fr;">
+        <div class="overflow-hidden">
+          <div class="px-5 pb-5 pt-1 space-y-4 text-xs leading-relaxed border-t border-slate-100 dark:border-slate-700 text-slate-600 dark:text-slate-400">
+            <div>
+              <div class="font-bold text-slate-800 dark:text-slate-200 mb-1">🚶 路程等級</div>
+              <div class="grid grid-cols-1 gap-1 pl-2 border-l-2 border-amber-300 dark:border-amber-600">
+                <p><span class="font-bold">超級近：</span>1 小時內可步行抵達、用餐完畢並順利返回。</p>
+                <p><span class="font-bold">走一下：</span>空堂或沒課時，可悠閒步行 10-15 分鐘之範圍。</p>
+                <p><span class="font-bold">有點遠：</span>步行 30 分鐘以上，或需搭乘捷運、公車、騎車抵達。</p>
+              </div>
+            </div>
+            <div>
+              <div class="font-bold text-slate-800 dark:text-slate-200 mb-1">💰 預算級別（支援複選）</div>
+              <div class="grid grid-cols-1 gap-1 pl-2 border-l-2 border-amber-300 dark:border-amber-600">
+                <p><span class="font-bold">＄：</span>150 元以內（平價便當、日常乾麵、早餐）。</p>
+                <p><span class="font-bold">＄＄：</span>151 ～ 300 元（日式定食、拉麵、常規簡餐）。</p>
+                <p><span class="font-bold">＄＄＄：</span>300 元以上（犒賞大餐、聚會鍋物、精緻料理）。</p>
+              </div>
+            </div>
+            <div>
+              <div class="font-bold text-slate-800 dark:text-slate-200 mb-1">💡 篩選與運作原則</div>
+              <div class="space-y-1.5">
+                <p>• <strong class="text-slate-700 dark:text-slate-300">其他</strong>：火鍋、速食漢堡、牛排、義大利麵等非純飯/麵為主的飽足正餐均可歸於此類。</p>
+                <p>• <strong class="text-slate-700 dark:text-slate-300">營業時間智慧判斷</strong>：系統會比對「目前時間」與「店家時段」，並自動判斷是否營業。支援跨夜時段（如 18:00-02:00）。</p>
+                <p>• <strong class="text-slate-700 dark:text-slate-300">自動排除休息店家</strong>：勾選後，會將當下判斷為「休息中」或「公休」的店家移出候選名單，讓抽出來的店家有開。</p>
+                <p>• <strong class="text-slate-700 dark:text-slate-300">預算獨立開關</strong>：若只想吃大餐可單獨點選「＄＄＄」；若想在平價與大餐間二選一可同時複選「＄」與「＄＄＄」。</p>
+                <p>• <strong class="text-slate-700 dark:text-slate-300">本機儲存與 PWA</strong>：所有名單均保留於瀏覽器中。您也可將此網頁「加入主畫面」，獲得如同原生 App 的全螢幕使用體驗。</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <footer class="text-slate-400 dark:text-slate-500 text-[10px] text-center space-y-1 mb-6">
+      <div class="font-bold">© 2026 TMU Campus Food Decider</div>
+      <div>相關資料來源為網路資料 · 僅供參考</div>
+    </footer>
+  </div>
+
+  <!-- 6. 底部懸浮操作列 -->
+  <div class="fixed bottom-0 inset-x-0 p-4 bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl border-t border-slate-200/50 dark:border-slate-700/50 z-50 flex justify-center pb-safe">
+    <div class="w-full max-w-md">
+      <button id="btn-spin" class="w-full py-4 bg-amber-500 hover:bg-amber-400 text-white text-[16px] font-black rounded-2xl shadow-xl shadow-amber-500/20 dark:shadow-amber-900/20 active:scale-[0.98] transition-all">
+        🎲 隨機抽選!
+      </button>
+    </div>
+  </div>
+
+  <script>
+    // 預設資料庫保持不變
+    const DEFAULT_DATA = [
+      { id: "1", name: "人从众厚切牛排(台北北醫店)", cat: "其他", priceLevel: 3, distLevel: 1, openDays: [1,2,3,4,5,6,7], hours: "11:00–21:30" },
+      { id: "2", name: "Creative Pasta 創義麵 信義店", cat: "其他", priceLevel: 2, distLevel: 1, openDays: [1,2,3,4,5,6,7], hours: "11:00–21:31" },
+      { id: "3", name: "賀加小吃店", cat: "麵類", priceLevel: 1, distLevel: 1, openDays: [1,2,3,4,5], hours: "12:00–14:00, 17:00–21:00" },
+      { id: "4", name: "九湯屋日本拉麵 台北莊敬店", cat: "麵類", priceLevel: 1, distLevel: 1, openDays: [1,2,3,4,5,6], hours: "11:00–22:00" },
+      { id: "5", name: "Piggy Foods沛綺優食", cat: "飯類", priceLevel: 1, distLevel: 1, openDays: [1,2,3,4,5], hours: "11:30–14:00, 17:30–19:30" },
+      { id: "6", name: "牛轉乾坤牛肉麵", cat: "麵類", priceLevel: 1, distLevel: 1, openDays: [1,2,4,5,6], hours: "11:30–14:00, 17:30–20:30" },
+      { id: "7", name: "一真亭ラーメン", cat: "麵類", priceLevel: 3, distLevel: 1, openDays: [1,2,3,4,5,6,7], hours: "11:30–13:30, 17:00–20:00" },
+      { id: "8", name: "伍柒玖牛肉麵飯館", cat: "麵類", priceLevel: 1, distLevel: 1, openDays: [1,2,3,4,5,6,7], hours: "10:30–21:30" },
+      { id: "9", name: "嘉義第一名火雞肉飯", cat: "飯類", priceLevel: 1, distLevel: 1, openDays: [1,2,3,4,5,6,7], hours: "11:00–22:00" },
+      { id: "10", name: "嘉珍港式燒臘店", cat: "飯類", priceLevel: 1, distLevel: 1, openDays: [1,2,3,4,5], hours: "10:30–20:00" },
+      { id: "11", name: "鬍鬚張魯肉飯 (台北北醫店)", cat: "飯類", priceLevel: 1, distLevel: 1, openDays: [1,2,3,4,5,6,7], hours: "10:00–21:00" },
+      { id: "12", name: "29匠日式豬排", cat: "飯類", priceLevel: 2, distLevel: 1, openDays: [1,2,3,4,5,6,7], hours: "11:00–14:00, 17:00–20:00" },
+      { id: "13", name: "雞肉本家 北醫店", cat: "飯類", priceLevel: 1, distLevel: 1, openDays: [1,2,3,4,5,6,7], hours: "11:00–20:30" },
+      { id: "14", name: "珍味臭臭鍋", cat: "其他", priceLevel: 2, distLevel: 1, openDays: [1,2,3,4,5,6,7], hours: "11:00–14:00, 16:30–21:00" },
+      { id: "15", name: "8鍋", cat: "其他", priceLevel: 2, distLevel: 1, openDays: [1,2,3,4,5,6,7], hours: "10:00–22:00" },
+      { id: "16", name: "飯鑫熱炒自助餐", cat: "飯類", priceLevel: 1, distLevel: 1, openDays: [1,2,3,4,5,6,7], hours: "10:30–14:00, 16:30–20:00" },
+      { id: "17", name: "269滿巷自助餐", cat: "飯類", priceLevel: 1, distLevel: 1, openDays: [1,2,3,4,5,6,7], hours: "10:30–20:00" },
+      { id: "18", name: "九鬼魚屋", cat: "其他", priceLevel: 2, distLevel: 1, openDays: [1,3,4,5,6,7], hours: "11:30–15:00, 17:00–21:00" },
+      { id: "19", name: "越泰軒", cat: "麵類", priceLevel: 1, distLevel: 1, openDays: [1,2,3,4,5,7], hours: "11:00–14:00, 17:00–20:30" },
+      { id: "20", name: "吳興街麵店", cat: "麵類", priceLevel: 1, distLevel: 1, openDays: [1,2,3,4,5,6], hours: "11:30–19:30" },
+      { id: "21", name: "爭鮮迴轉壽司 北醫店", cat: "飯類", priceLevel: 2, distLevel: 1, openDays: [1,2,3,4,5,6,7], hours: "11:00–21:30" },
+      { id: "22", name: "府城鵝肉店", cat: "麵類", priceLevel: 1, distLevel: 1, openDays: [1,2,3,4,5,6], hours: "11:30–21:30" },
+      { id: "23", name: "超商食物", cat: "其他", priceLevel: 1, distLevel: 1, openDays: [1,2,3,4,5,6,7], hours: "24hr" },
+      { id: "24", name: "甘泉魚麵北醫店", cat: "麵類", priceLevel: 1, distLevel: 1, openDays: [1,2,3,4,5,6], hours: "11:00–20:15" },
+      { id: "25", name: "微想咖哩", cat: "飯類", priceLevel: 1, distLevel: 1, openDays: [1,2,3,4,5,6,7], hours: "11:30–14:30, 17:00–21:00" },
+      { id: "26", name: "冰山一角冰品店", cat: "甜點", priceLevel: 1, distLevel: 1, openDays: [1,2,3,4,5,6], hours: "11:00–01:30" },
+      { id: "27", name: "冰山一角冰品店(火鍋)", cat: "其他", priceLevel: 2, distLevel: 1, openDays: [1,2,3,4,5,6], hours: "11:00–01:30" },
+      { id: "28", name: "一碗小羊肉", cat: "飯類", priceLevel: 1, distLevel: 1, openDays: [1,2,4,5,6,7], hours: "16:00–23:30" },
+      { id: "29", name: "包子商行 北醫店", cat: "點心", priceLevel: 1, distLevel: 1, openDays: [1,2,3,4,5,6,7], hours: "07:00–21:30" },
+      { id: "30", name: "朝鮮閣", cat: "其他", priceLevel: 1, distLevel: 1, openDays: [1,2,3,4,5], hours: "11:30–15:00, 17:00–20:00" },
+      { id: "31", name: "魚韻日式料理 北醫店", cat: "飯類", priceLevel: 2, distLevel: 1, openDays: [1,2,3,4,5,6], hours: "11:30–14:30, 17:00–21:00" },
+      { id: "32", name: "邱記涼麵", cat: "麵類", priceLevel: 1, distLevel: 1, openDays: [2,3,4,5,6,7], hours: "06:00–13:30" },
+      { id: "33", name: "轉角那義家", cat: "麵類", priceLevel: 1, distLevel: 1, openDays: [1,2,3,4,5,6], hours: "10:00–19:30" },
+      { id: "34", name: "小蔬同手作蔬食", cat: "麵類", priceLevel: 1, distLevel: 1, openDays: [1,2,3,4,5,6], hours: "11:30–14:00, 17:30–20:00" },
+      { id: "35", name: "大大力海南雞飯", cat: "飯類", priceLevel: 1, distLevel: 1, openDays: [1,2,3,4,5], hours: "11:30–14:00, 16:30–19:30" },
+      { id: "36", name: "里麵有人", cat: "麵類", priceLevel: 1, distLevel: 1, openDays: [1,2,3,4,5,7], hours: "11:00–15:00, 17:00–20:00" },
+      { id: "37", name: "加油添醋 烏醋乾麵", cat: "麵類", priceLevel: 1, distLevel: 1, openDays: [1,2,3,4,5,6], hours: "11:00–20:30" },
+      { id: "38", name: "老許牛肉麵", cat: "麵類", priceLevel: 2, distLevel: 1, openDays: [1,2,3,4,5,6,7], hours: "11:00–14:00, 17:00–19:30" },
+      { id: "39", name: "點一碗銷魂鴨肉飯（信義吳興店）", cat: "飯類", priceLevel: 1, distLevel: 1, openDays: [1,2,3,4,5,6,7], hours: "10:30–14:00, 16:30–20:00" },
+      { id: "40", name: "古厝", cat: "麵類", priceLevel: 1, distLevel: 1, openDays: [1,2,3,4,5,6,7], hours: "11:00–19:00" },
+      { id: "41", name: "泰好食光 （HAVE A GOOD THAI)", cat: "飯類", priceLevel: 1, distLevel: 1, openDays: [1,2,3,4,5], hours: "11:30–14:00, 17:00–20:30" },
+      { id: "42", name: "品味刀削麵", cat: "麵類", priceLevel: 1, distLevel: 1, openDays: [1,2,3,4,5,6], hours: "11:15–14:00, 17:15–20:00" },
+      { id: "43", name: "大福利排骨大王北醫店", cat: "飯類", priceLevel: 1, distLevel: 1, openDays: [1,2,3,4,5,6,7], hours: "11:00–20:30" },
+      { id: "44", name: "鑫吉野烤肉飯-信義店", cat: "飯類", priceLevel: 1, distLevel: 1, openDays: [1,2,3,4,5,6], hours: "09:00–20:30" },
+      { id: "45", name: "吳興土魠魚焿", cat: "麵類", priceLevel: 1, distLevel: 1, openDays: [1,2,3,4,5,7], hours: "11:00–14:30, 16:30–20:00" },
+      { id: "46", name: "找餐2店", cat: "早餐", priceLevel: 1, distLevel: 1, openDays: [1,2,3,4,5,6,7], hours: "08:00–14:00" },
+      { id: "47", name: "八方雲集", cat: "其他", priceLevel: 1, distLevel: 1, openDays: [1,2,3,4,5,6,7], hours: "11:00–22:45" },
+      { id: "48", name: "摩斯漢堡 北醫吳興店", cat: "其他", priceLevel: 2, distLevel: 1, openDays: [1,2,3,4,5,6,7], hours: "06:00–22:00" },
+      { id: "49", name: "Hungry Pans 夯堡 北醫店", cat: "其他", priceLevel: 2, distLevel: 1, openDays: [1,2,3,4,5,6,7], hours: "?" },
+      { id: "50", name: "麵匡匡拉麵食堂 台北莊敬店", cat: "麵類", priceLevel: 2, distLevel: 1, openDays: [1,2,3,4,5,6,7], hours: "11:00–14:30, 17:00–20:30" },
+      { id: "51", name: "老先覺", cat: "其他", priceLevel: 2, distLevel: 1, openDays: [1,2,3,4,5,6,7], hours: "11:30–22:00" },
+      { id: "52", name: "初の鮨", cat: "飯類", priceLevel: 3, distLevel: 1, openDays: [1,2,3,4,5,6,7], hours: "11:30–14:30, 17:30–21:30" },
+      { id: "53", name: "潮味決 ‧ 湯滷專門店 台北莊敬", cat: "麵類", priceLevel: 1, distLevel: 1, openDays: [1,2,3,4,5,6,7], hours: "11:30–21:30" },
+      { id: "54", name: "宜品乾拌麵-莊敬店", cat: "麵類", priceLevel: 1, distLevel: 1, openDays: [1,2,3,4,5,6,7], hours: "10:00–21:00" },
+      { id: "55", name: "麥當勞-台北莊敬店", cat: "其他", priceLevel: 2, distLevel: 2, openDays: [1,2,3,4,5,6,7], hours: "05:00–03:30" },
+      { id: "56", name: "大直粥品-莊敬店", cat: "飯類", priceLevel: 1, distLevel: 1, openDays: [1,2,3,4,5,6,7], hours: "10:00–21:00" },
+      { id: "57", name: "游一間餐盒", cat: "飯類", priceLevel: 1, distLevel: 1, openDays: [1,2,3,4,5,7], hours: "11:00–14:00, 17:00–20:30" },
+      { id: "58", name: "狀元香滷味", cat: "麵類", priceLevel: 1, distLevel: 1, openDays: [1,2,3,4,5,7], hours: "17:30–23:00" },
+      { id: "59", name: "依鼎越式美食", cat: "麵類", priceLevel: 2, distLevel: 1, openDays: [1,2,3,4,5,6,7], hours: "10:00–21:00" },
+      { id: "60", name: "永和樓(영화루)韓式中華料理店", cat: "飯類", priceLevel: 2, distLevel: 1, openDays: [2,3,4,5,6,7], hours: "11:30–14:30, 17:00–21:00" },
+      { id: "61", name: "13古早味大腸麵線(莊敬店)", cat: "麵類", priceLevel: 1, distLevel: 1, openDays: [1,2,3,4,5,6,7], hours: "08:00–23:00" },
+      { id: "62", name: "念之味排骨便當", cat: "飯類", priceLevel: 1, distLevel: 1, openDays: [1,2,3,4,5,6], hours: "10:30–14:00, 17:00–20:00" },
+      { id: "63", name: "職人丼深夜食堂 信義店", cat: "飯類", priceLevel: 1, distLevel: 1, openDays: [1,2,3,4,5,6,7], hours: "11:00–14:00, 17:00–22:00" },
+      { id: "64", name: "詹字號麵食館", cat: "麵類", priceLevel: 1, distLevel: 2, openDays: [1,2,3,4,5,6], hours: "11:00–20:30" },
+      { id: "65", name: "金鳳大飯店-台北世貿店", cat: "飯類", priceLevel: 1, distLevel: 2, openDays: [1,2,3,4,5,7], hours: "11:00–14:00, 16:30–20:00" },
+      { id: "66", name: "查記麵館", cat: "麵類", priceLevel: 1, distLevel: 2, openDays: [1,2,3,4,5], hours: "11:00–14:00, 16:30–19:30" },
+      { id: "67", name: "waku waku burger", cat: "其他", priceLevel: 2, distLevel: 2, openDays: [1,2,3,4,5,6,7], hours: "11:30–21:30" },
+      { id: "68", name: "辣王忠麻辣乾麵KingSpicyJ", cat: "麵類", priceLevel: 1, distLevel: 1, openDays: [1,2,3,4,5,6], hours: "11:00–14:00, 17:00–20:00" },
+      { id: "69", name: "粥師傅廣東粥北醫店", cat: "飯類", priceLevel: 1, distLevel: 1, openDays: [1,2,3,4,5,6], hours: "17:00–00:00" },
+      { id: "70", name: "楓川日本料理", cat: "飯類", priceLevel: 1, distLevel: 2, openDays: [3,4,5,6,7], hours: "11:00–14:00, 17:00–21:00" },
+      { id: "71", name: "YELLOW FOOD", cat: "麵類", priceLevel: 2, distLevel: 2, openDays: [1,2,3,4,5,6], hours: "11:30–20:00" },
+      { id: "72", name: "寶島鐵板燒", cat: "飯類", priceLevel: 2, distLevel: 2, openDays: [2,3,4,5,6], hours: "11:00–14:00, 17:00–21:00" },
+      { id: "73", name: "阿宗米粉湯", cat: "麵類", priceLevel: 1, distLevel: 1, openDays: [1,2,3,4,5,6], hours: "11:00–14:30, 17:30–20:30" },
+      { id: "74", name: "紅燈手工臭豆腐 米粉湯", cat: "麵類", priceLevel: 1, distLevel: 1, openDays: [1,2,3,4,5], hours: "18:00–01:00" },
+      { id: "75", name: "Miss Energy 能量小姐 台北信義莊敬門市", cat: "飯類", priceLevel: 1, distLevel: 1, openDays: [1,2,3,4,5], hours: "10:30–19:00" },
+      { id: "76", name: "Fancy Poké 夏威夷生魚飯 莊敬店", cat: "飯類", priceLevel: 1, distLevel: 1, openDays: [1,2,3,4,5,6], hours: "11:00–14:30, 16:00–20:30" },
+      { id: "77", name: "頂呱呱 信義莊敬店", cat: "點心", priceLevel: 1, distLevel: 1, openDays: [1,2,3,4,5,6,7], hours: "11:00–21:00" },
+      { id: "78", name: "全聯對面古早味雞蛋糕", cat: "點心", priceLevel: 1, distLevel: 1, openDays: [2,3,5,6], hours: "12:30–20:00" },
+      { id: "79", name: "閒酥雞臺北市吳興店", cat: "宵夜", priceLevel: 1, distLevel: 1, openDays: [1,3,4,5,6,7], hours: "17:00–23:30" },
+      { id: "80", name: "蔡家班水煎包-吳興店", cat: "點心", priceLevel: 1, distLevel: 1, openDays: [1,2,3,4,5], hours: "14:00–21:00" },
+      { id: "81", name: "肯德基-台北莊敬餐廳", cat: "其他", priceLevel: 2, distLevel: 1, openDays: [1,2,3,4,5,6,7], hours: "10:00–23:00" },
+      { id: "82", name: "珍煮丹-台北北醫店", cat: "手搖", priceLevel: 1, distLevel: 1, openDays: [1,2,3,4,5,6,7], hours: "10:00–21:00" },
+      { id: "83", name: "北投紅茶", cat: "手搖", priceLevel: 1, distLevel: 1, openDays: [1,2,3,4,5,6,7], hours: "?" },
+      { id: "84", name: "拾汣茶屋 莊敬店", cat: "手搖", priceLevel: 1, distLevel: 1, openDays: [1,2,3,4,5,6,7], hours: "10:30–21:00" },
+      { id: "85", name: "迷客夏 臺北北醫莊敬店", cat: "手搖", priceLevel: 1, distLevel: 1, openDays: [1,2,3,4,5,6,7], hours: "10:30–21:00" },
+      { id: "86", name: "50嵐 莊敬店", cat: "手搖", priceLevel: 1, distLevel: 1, openDays: [1,2,3,4,5,6,7], hours: "10:30–22:00" },
+      { id: "87", name: "一沐日 台北吳興店", cat: "手搖", priceLevel: 1, distLevel: 1, openDays: [1,2,3,4,5,6,7], hours: "10:00–21:00" },
+      { id: "88", name: "CoCo都可 吳興店", cat: "手搖", priceLevel: 1, distLevel: 1, openDays: [1,2,3,4,5,6,7], hours: "10:00–21:45" },
+      { id: "89", name: "得正#台北世貿計劃", cat: "手搖", priceLevel: 1, distLevel: 2, openDays: [1,2,3,4,5,6,7], hours: "10:30–20:00" },
+      { id: "90", name: "清心福全信義世貿店", cat: "手搖", priceLevel: 1, distLevel: 1, openDays: [1,2,3,4,5,6,7], hours: "11:00–21:00" },
+      { id: "91", name: "台灣塩酥雞 通化直營店", cat: "宵夜", priceLevel: 1, distLevel: 2, openDays: [1,2,3,4,5,6,7], hours: "10:30–04:30" },
+      { id: "92", name: "艋舺雞排 通化店", cat: "宵夜", priceLevel: 1, distLevel: 2, openDays: [1,2,3,4,5,6,7], hours: "14:00–02:00" },
+      { id: "93", name: "檸檬草", cat: "早餐", priceLevel: 1, distLevel: 1, openDays: [1,2,3,4,5,6], hours: "06:30–13:30" },
+      { id: "94", name: "晨間廚房早午餐信義莊敬店", cat: "早餐", priceLevel: 1, distLevel: 1, openDays: [1,2,3,4,5,6,7], hours: "06:30–13:30" },
+      { id: "95", name: "拉亞漢堡 信義吳興店", cat: "早餐", priceLevel: 1, distLevel: 1, openDays: [1,3,4,5,6,7], hours: "06:30–14:00" },
+      { id: "96", name: "白暮蛋餅先生5號店（北醫店）", cat: "早餐", priceLevel: 1, distLevel: 1, openDays: [1,2,3,4,5,6,7], hours: "07:30–15:00" },
+      { id: "97", name: "281雞蛋糕", cat: "點心", priceLevel: 1, distLevel: 1, openDays: [1,2,3,4,5,6,7], hours: "14:30–21:00" },
+      { id: "98", name: "羅本家咖哩 信義店", cat: "飯類", priceLevel: 2, distLevel: 2, openDays: [1,2,3,4,5,6], hours: "11:30–14:00, 17:00–20:00" },
+      { id: "99", name: "瑞麟美而美", cat: "早餐", priceLevel: 1, distLevel: 1, openDays: [1,2,3,4,5,6,7], hours: "06:40–18:00" },
+      { id: "100", name: "豆花森", cat: "甜點", priceLevel: 1, distLevel: 1, openDays: [2,3,4,5,6,7], hours: "12:00–21:00" }
+    ];
+
+    (() => {
+      // --- 模組化資料與 UI 管理 ---
+      class AppState {
+        constructor() {
+          this.restaurants = JSON.parse(localStorage.getItem('my_lunch_tmu_100')) || [...DEFAULT_DATA];
+          this.selectedCats = new Set(["早餐", "飯類", "麵類", "點心", "手搖", "甜點", "宵夜", "其他"]);
+          this.selectedMaxDist = 3;
+          this.selectedPrices = new Set([1, 2, 3]);
+          this.newStoreDist = 2;
+          this.newStorePrice = 1;
+          this.filteredList = [];
+          this.isSpinning = false;
+        }
+        save() { localStorage.setItem('my_lunch_tmu_100', JSON.stringify(this.restaurants)); }
+      }
+
+      const state = new AppState();
+      
+      const CAT_THEMES = {
+        "早餐": "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-300 border-yellow-200 dark:border-yellow-800",
+        "飯類": "bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-300 border-orange-200 dark:border-orange-800",
+        "麵類": "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300 border-red-200 dark:border-red-800",
+        "點心": "bg-pink-100 text-pink-800 dark:bg-pink-900/40 dark:text-pink-300 border-pink-200 dark:border-pink-800",
+        "手搖": "bg-teal-100 text-teal-800 dark:bg-teal-900/40 dark:text-teal-300 border-teal-200 dark:border-teal-800",
+        "甜點": "bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300 border-purple-200 dark:border-purple-800",
+        "宵夜": "bg-indigo-100 text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800",
+        "其他": "bg-slate-100 text-slate-700 dark:bg-slate-700/60 dark:text-slate-300 border-slate-200 dark:border-slate-600"
+      };
+      
+      const ALL_CATS = Object.keys(CAT_THEMES);
+      const DIST_LABELS = { 1: "超級近", 2: "走一下", 3: "有點遠" };
+      const PRICE_LABELS = { 1: "＄ (≤150)", 2: "＄＄ (151-300)", 3: "＄＄＄ (>300)" };
+
+      // --- 工具函數 ---
+      const escapeHTML = (str) => {
+        if (!str) return '';
+        const div = document.createElement('div');
+        div.textContent = str;
+        return div.innerHTML;
+      };
+
+      const vibrate = (pattern) => { if (navigator.vibrate) navigator.vibrate(pattern); };
+
+      // 自訂 Toast 元件
+      function showToast(message, type = 'success') {
+        const container = document.getElementById('toast-container');
+        const toast = document.createElement('div');
+        const bgColor = type === 'success' ? 'bg-slate-800 dark:bg-slate-700 text-white' : 'bg-rose-500 text-white';
+        toast.className = `px-5 py-3 rounded-2xl text-sm font-bold shadow-xl transform transition-all duration-300 -translate-y-full opacity-0 ${bgColor} flex items-center justify-center pointer-events-auto`;
+        toast.textContent = message;
+        
+        container.appendChild(toast);
+        requestAnimationFrame(() => {
+          toast.classList.remove('-translate-y-full', 'opacity-0');
+        });
+        
+        setTimeout(() => {
+          toast.classList.add('-translate-y-full', 'opacity-0');
+          setTimeout(() => toast.remove(), 300);
+        }, 2500);
+      }
+
+      // 自訂 Confirm Modal
+      function showConfirm(message, onConfirm) {
+        const modal = document.getElementById('confirm-modal');
+        const box = document.getElementById('confirm-box');
+        document.getElementById('confirm-msg').textContent = message;
+        
+        modal.classList.remove('hidden');
+        requestAnimationFrame(() => {
+          modal.classList.remove('opacity-0');
+          box.classList.remove('scale-95');
+        });
+
+        const closeModal = () => {
+          modal.classList.add('opacity-0');
+          box.classList.add('scale-95');
+          setTimeout(() => modal.classList.add('hidden'), 300);
+        };
+
+        document.getElementById('btn-confirm-cancel').onclick = closeModal;
+        document.getElementById('btn-confirm-ok').onclick = () => {
+          closeModal();
+          onConfirm();
+        };
+      }
+
+      // 手風琴展開收合
+      function toggleAccordion(wrapperId, forceClose = false) {
+        const wrapper = document.getElementById(wrapperId);
+        const isClosed = wrapper.style.gridTemplateRows === '0fr';
+        wrapper.style.gridTemplateRows = (isClosed && !forceClose) ? '1fr' : '0fr';
+        return (isClosed && !forceClose);
+      }
+
+      // 營業時間判斷
+      function getOpenStatus(hoursStr, openDaysArr) {
+        const now = new Date();
+        const currentDay = now.getDay() || 7;
+        const yesterdayDay = currentDay === 1 ? 7 : currentDay - 1;
+        const currentMins = now.getHours() * 60 + now.getMinutes();
+
+        if (!hoursStr || hoursStr === '?') {
+          return { isOpen: null, badge: '<span class="text-slate-400 dark:text-slate-500">⚪ 狀態未知</span>' };
+        }
+        if (hoursStr.toLowerCase() === '24hr') {
+          return { isOpen: true, badge: '<span class="text-emerald-500 font-bold">🟢 營業中</span>' };
+        }
+
+        let isCurrentlyOpen = false;
+        let hasValidTime = false;
+        const periods = hoursStr.split(',').map(s => s.trim());
+        
+        for (let p of periods) {
+          const match = p.match(/(\d{1,2}):(\d{2})\s*[-–~]\s*(\d{1,2}):(\d{2})/);
+          if (match) {
+            hasValidTime = true;
+            const start = parseInt(match[1]) * 60 + parseInt(match[2]);
+            const end = parseInt(match[3]) * 60 + parseInt(match[4]);
+            if (start <= end) {
+              if (openDaysArr.includes(currentDay) && currentMins >= start && currentMins <= end) isCurrentlyOpen = true;
+            } else {
+              if (openDaysArr.includes(currentDay) && currentMins >= start) isCurrentlyOpen = true;
+              if (openDaysArr.includes(yesterdayDay) && currentMins <= end) isCurrentlyOpen = true;
+            }
+          }
+        }
+        if (!hasValidTime) return { isOpen: null, badge: '<span class="text-slate-400 dark:text-slate-500">⚪ 狀態未知</span>' };
+        if (isCurrentlyOpen) return { isOpen: true, badge: '<span class="text-emerald-500 font-bold">🟢 營業中</span>' };
+        if (!openDaysArr.includes(currentDay)) return { isOpen: false, badge: '<span class="text-rose-500 font-bold opacity-75">🔴 今日公休</span>' };
+        return { isOpen: false, badge: '<span class="text-rose-500 font-bold">🔴 休息中</span>' };
+      }
+
+      // --- UI 渲染與事件綁定 ---
+      function initTheme() {
+        const html = document.documentElement;
+        if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+          html.classList.add('dark');
+        } else {
+          html.classList.remove('dark');
+        }
+        document.getElementById('theme-icon').textContent = html.classList.contains('dark') ? '☀️' : '🌙';
+        
+        document.getElementById('theme-toggle').onclick = () => {
+          html.classList.toggle('dark');
+          localStorage.theme = html.classList.contains('dark') ? 'dark' : 'light';
+          document.getElementById('theme-icon').textContent = html.classList.contains('dark') ? '☀️' : '🌙';
+        };
+      }
+
+      function renderFilters() {
+        const chipsContainer = document.getElementById('category-chips');
+        chipsContainer.innerHTML = '';
+        ALL_CATS.forEach(cat => {
+          const btn = document.createElement('button');
+          btn.textContent = cat;
+          const isChecked = state.selectedCats.has(cat);
+          btn.className = `px-3 py-1.5 text-xs rounded-xl border font-bold transition-all active:scale-95 ${isChecked ? CAT_THEMES[cat] : 'bg-slate-50 dark:bg-slate-800 text-slate-400 border-slate-200 dark:border-slate-700'}`;
+          btn.onclick = () => {
+            vibrate(5);
+            state.selectedCats.has(cat) ? state.selectedCats.delete(cat) : state.selectedCats.add(cat);
+            renderFilters();
+            applyFilters();
+          };
+          chipsContainer.appendChild(btn);
+        });
+
+        document.querySelectorAll('.filter-dist-btn').forEach(btn => {
+          const val = Number(btn.dataset.val);
+          btn.className = val === state.selectedMaxDist
+            ? 'filter-dist-btn py-2.5 text-xs rounded-2xl border border-amber-400 dark:border-amber-500 bg-amber-50 dark:bg-amber-900/30 text-amber-800 dark:text-amber-400 font-bold'
+            : 'filter-dist-btn py-2.5 text-xs rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-500 font-medium';
+        });
+
+        document.querySelectorAll('.filter-price-btn').forEach(btn => {
+          const val = Number(btn.dataset.val);
+          btn.className = state.selectedPrices.has(val)
+            ? 'filter-price-btn py-2.5 text-xs rounded-2xl border border-amber-400 dark:border-amber-500 bg-amber-50 dark:bg-amber-900/30 text-amber-800 dark:text-amber-400 font-bold'
+            : 'filter-price-btn py-2.5 text-xs rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-400 font-medium';
+        });
+      }
+
+      function applyFilters() {
+        const onlyOpen = document.getElementById('filter-open-now').checked;
+        state.filteredList = state.restaurants.filter(r => {
+          if (!state.selectedCats.has(r.cat) || !state.selectedPrices.has(r.priceLevel) || r.distLevel > state.selectedMaxDist) return false;
+          if (onlyOpen && getOpenStatus(r.hours, r.openDays).isOpen === false) return false;
+          return true;
+        });
+
+        document.getElementById('candidate-count').textContent = state.filteredList.length;
+        const btnSpin = document.getElementById('btn-spin');
+        const slotStrip = document.getElementById('slot-strip');
+
+        if (state.filteredList.length === 0) {
+          btnSpin.disabled = true;
+          btnSpin.className = 'w-full py-4 bg-slate-200 dark:bg-slate-800 text-slate-400 dark:text-slate-500 text-[16px] font-bold rounded-2xl shadow-none cursor-not-allowed transition-all';
+          btnSpin.innerHTML = '條件太嚴苛了 😕';
+          slotStrip.innerHTML = '<div class="h-14 flex items-center justify-center text-sm font-bold text-rose-500 dark:text-rose-400">無符合選項</div>';
+        } else {
+          btnSpin.disabled = false;
+          btnSpin.className = 'w-full py-4 bg-amber-500 hover:bg-amber-400 text-white text-[16px] font-black rounded-2xl shadow-xl shadow-amber-500/20 active:scale-[0.98] transition-all';
+          btnSpin.innerHTML = '🎲 隨機抽選!';
+          if (!state.isSpinning) {
+            slotStrip.innerHTML = `<div class="h-14 flex items-center justify-center"><span class="text-[15px] font-black text-slate-700 dark:text-slate-300">準備抽籤</span></div>`;
+          }
+        }
+        renderCandidates();
+      }
+
+      function renderCandidates() {
+        const list = document.getElementById('candidate-list');
+        list.innerHTML = '';
+        if (state.filteredList.length === 0) {
+          list.innerHTML = `<span class="text-rose-500 dark:text-rose-400 font-medium">找不到店家，請放寬上方的篩選條件！</span>`;
+          return;
+        }
+        
+        const frag = document.createDocumentFragment();
+        state.filteredList.forEach(r => {
+          const div = document.createElement('div');
+          div.className = "flex justify-between items-center text-slate-700 dark:text-slate-300 pb-2 border-b border-slate-100 dark:border-slate-700/50 last:border-0 last:pb-0";
+          div.innerHTML = `
+            <span class="font-bold truncate pr-2 flex items-center gap-1.5">
+              <span class="text-[10px] ${CAT_THEMES[r.cat].split(' ')[0]} ${CAT_THEMES[r.cat].split(' ')[1]} px-1.5 py-0.5 rounded-md border-0">${escapeHTML(r.cat)}</span>
+              ${escapeHTML(r.name)}
+            </span>
+            <div class="flex items-center gap-3 shrink-0">
+              <span class="text-[10px]">${getOpenStatus(r.hours, r.openDays).badge}</span>
+              <span class="text-slate-400 dark:text-slate-500 font-medium">${DIST_LABELS[r.distLevel]}</span>
+            </div>
+          `;
+          frag.appendChild(div);
+        });
+        list.appendChild(frag);
+      }
+
+      function renderManagerList() {
+        const container = document.getElementById('full-store-list');
+        document.getElementById('total-count').textContent = state.restaurants.length;
+        container.innerHTML = '';
+        
+        const frag = document.createDocumentFragment();
+        state.restaurants.forEach(r => {
+          const div = document.createElement('div');
+          div.className = "flex items-center justify-between p-3 rounded-2xl bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 shadow-sm";
+          div.innerHTML = `
+            <div class="overflow-hidden pr-2">
+              <div class="flex items-center gap-1.5 truncate mb-1">
+                <span class="text-[10px] font-bold px-1.5 py-0.5 rounded border ${CAT_THEMES[r.cat]} shrink-0">${escapeHTML(r.cat)}</span>
+                <span class="font-bold text-slate-800 dark:text-slate-200 text-sm truncate">${escapeHTML(r.name)}</span>
+              </div>
+              <div class="text-[11px] text-slate-400 dark:text-slate-500 flex gap-2 font-medium">
+                <span>${DIST_LABELS[r.distLevel]} / ${PRICE_LABELS[r.priceLevel]}</span>
+                ${r.hours && r.hours !== '?' ? `<span class="truncate">🕒 ${escapeHTML(r.hours)}</span>` : ''}
+              </div>
+            </div>
+            <button class="delete-btn text-rose-500 dark:text-rose-400 text-xs font-bold px-3 py-2 bg-rose-50 dark:bg-rose-900/20 rounded-lg shrink-0 active:scale-95 transition-transform">刪除</button>
+          `;
+          div.querySelector('.delete-btn').onclick = () => {
+            showConfirm(`確定要刪除「${r.name}」嗎？`, () => {
+              state.restaurants = state.restaurants.filter(item => item.id !== r.id);
+              state.save();
+              applyFilters();
+              renderManagerList();
+              showToast('已刪除店家', 'success');
+            });
+          };
+          frag.appendChild(div);
+        });
+        container.appendChild(frag);
+      }
+
+      // --- 綁定事件 ---
+      document.getElementById('btn-toggle-all-cats').onclick = () => {
+        state.selectedCats = state.selectedCats.size === ALL_CATS.length ? new Set() : new Set(ALL_CATS);
+        renderFilters(); applyFilters(); vibrate(10);
+      };
+
+      document.querySelectorAll('.filter-dist-btn').forEach(btn => {
+        btn.onclick = () => { state.selectedMaxDist = Number(btn.dataset.val); renderFilters(); applyFilters(); vibrate(5); };
+      });
+      document.querySelectorAll('.filter-price-btn').forEach(btn => {
+        btn.onclick = () => { 
+          const val = Number(btn.dataset.val);
+          state.selectedPrices.has(val) ? state.selectedPrices.delete(val) : state.selectedPrices.add(val);
+          renderFilters(); applyFilters(); vibrate(5);
+        };
+      });
+
+      document.getElementById('filter-summary').onclick = () => {
+        document.getElementById('filter-summary').classList.add('hidden');
+        document.getElementById('filter-wrapper').style.gridTemplateRows = '1fr';
+      };
+
+      document.getElementById('filter-open-now').addEventListener('change', applyFilters);
+      
+      document.getElementById('btn-toggle-candidates').onclick = () => {
+        const isOpen = toggleAccordion('candidate-wrapper');
+        document.getElementById('btn-toggle-candidates').textContent = isOpen ? '收起名單' : '展開名單';
+      };
+
+      document.getElementById('btn-toggle-manager').onclick = () => {
+        const isOpen = toggleAccordion('manager-wrapper');
+        document.getElementById('icon-manager').style.transform = isOpen ? 'rotate(45deg)' : 'rotate(0deg)';
+      };
+
+      document.getElementById('btn-toggle-info').onclick = () => {
+        const isOpen = toggleAccordion('info-wrapper');
+        document.getElementById('icon-info').style.transform = isOpen ? 'rotate(45deg)' : 'rotate(0deg)';
+      };
+
+      // 新增店家邏輯
+      document.querySelectorAll('.add-dist-btn').forEach(btn => {
+        btn.onclick = () => {
+          state.newStoreDist = Number(btn.dataset.val);
+          document.querySelectorAll('.add-dist-btn').forEach(b => b.className = Number(b.dataset.val) === state.newStoreDist ? 'add-dist-btn py-2 text-xs rounded-xl border border-amber-400 dark:border-amber-500 bg-amber-50 dark:bg-amber-900/30 text-amber-800 dark:text-amber-400 font-bold' : 'add-dist-btn py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-500 font-medium');
+        };
+      });
+      document.querySelectorAll('.add-price-btn').forEach(btn => {
+        btn.onclick = () => {
+          state.newStorePrice = Number(btn.dataset.val);
+          document.querySelectorAll('.add-price-btn').forEach(b => b.className = Number(b.dataset.val) === state.newStorePrice ? 'add-price-btn py-2 text-xs rounded-xl border border-amber-400 dark:border-amber-500 bg-amber-50 dark:bg-amber-900/30 text-amber-800 dark:text-amber-400 font-bold' : 'add-price-btn py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-500 font-medium');
+        };
+      });
+
+      document.getElementById('form-add').onsubmit = (e) => {
+        e.preventDefault();
+        const openDays = Array.from(document.querySelectorAll('input[name="add-day"]:checked')).map(el => Number(el.value));
+        const tStart = document.getElementById('add-time-start').value;
+        const tEnd = document.getElementById('add-time-end').value;
+        const hoursStr = (tStart && tEnd) ? `${tStart}-${tEnd}` : '?';
+
+        const newRest = {
+          id: Date.now().toString(),
+          name: document.getElementById('add-name').value.trim(),
+          priceLevel: state.newStorePrice,
+          distLevel: state.newStoreDist,
+          cat: document.getElementById('add-cat').value,
+          hours: hoursStr,
+          openDays: openDays.length ? openDays : [1,2,3,4,5,6,7]
+        };
+        state.restaurants.unshift(newRest);
+        state.save();
+        
+        document.getElementById('form-add').reset();
+        state.newStoreDist = 2; state.newStorePrice = 1;
+        document.querySelector('.add-dist-btn[data-val="2"]').click();
+        document.querySelector('.add-price-btn[data-val="1"]').click();
+        
+        applyFilters(); renderManagerList();
+        showToast('已成功新增至口袋名單！');
+      };
+
+      // 匯出匯入還原
+      document.getElementById('btn-export-data').onclick = () => {
+        const blob = new Blob([JSON.stringify(state.restaurants, null, 2)], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a'); a.href = url; a.download = `tmu_food_decider_${new Date().toISOString().slice(0,10)}.json`;
+        document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
+      };
+
+      document.getElementById('input-import-data').onchange = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          try {
+            const data = JSON.parse(event.target.result);
+            if (Array.isArray(data) && data.length > 0 && data[0].name) {
+              state.restaurants = data; state.save();
+              applyFilters(); renderManagerList();
+              showToast('名單匯入成功！');
+            } else throw new Error();
+          } catch { showToast('檔案格式錯誤，請確認是否為有效 JSON', 'error'); }
+          e.target.value = '';
+        };
+        reader.readAsText(file);
+      };
+
+      document.getElementById('btn-reset-data').onclick = () => {
+        showConfirm('確定要還原成預設名單嗎？這將覆蓋您目前的所有資料。', () => {
+          state.restaurants = [...DEFAULT_DATA]; state.save();
+          applyFilters(); renderManagerList();
+          showToast('已還原為預設名單');
+        });
+      };
+
+      // 抽籤邏輯
+      const ITEM_HEIGHT = 56;
+      document.getElementById('btn-spin').onclick = () => {
+        if (state.isSpinning || state.filteredList.length === 0) return;
+        
+        vibrate(10);
+        state.isSpinning = true;
+        const btnSpin = document.getElementById('btn-spin');
+        const overlay = document.getElementById('spin-overlay');
+        const slotStrip = document.getElementById('slot-strip');
+        
+        overlay.classList.remove('hidden');
+        btnSpin.disabled = true;
+        btnSpin.className = 'w-full py-4 bg-slate-200 dark:bg-slate-800 text-slate-500 dark:text-slate-400 text-[16px] font-bold rounded-2xl cursor-not-allowed transition-all';
+        btnSpin.innerHTML = '🔄 抽選中...';
+        
+        toggleAccordion('filter-wrapper', true);
+        document.getElementById('filter-summary').classList.remove('hidden');
+        document.getElementById('result-card').classList.add('hidden', 'scale-95', 'opacity-0');
+
+        const winningIndex = Math.floor(Math.random() * state.filteredList.length);
+        const winner = state.filteredList[winningIndex];
+
+        const sequence = Array.from({length: 35 + Math.floor(Math.random() * 10)}, () => state.filteredList[Math.floor(Math.random() * state.filteredList.length)]);
+        sequence.push(winner);
+
+        const frag = document.createDocumentFragment();
+        sequence.forEach(item => {
+          const div = document.createElement('div');
+          div.className = "h-14 w-full flex flex-col items-center justify-center px-4 shrink-0";
+          div.innerHTML = `
+            <span class="text-base font-black text-slate-800 dark:text-white truncate max-w-[280px]">${escapeHTML(item.name)}</span>
+            <span class="text-[10px] font-bold tracking-wide mt-0.5 flex gap-1.5 items-center">
+               <span class="px-1.5 rounded-md ${CAT_THEMES[item.cat].split(' ')[0]} ${CAT_THEMES[item.cat].split(' ')[1]} border-0">${escapeHTML(item.cat)}</span>
+               <span class="text-slate-400 dark:text-slate-500">${DIST_LABELS[item.distLevel]}</span>
+            </span>`;
+          frag.appendChild(div);
+        });
+        slotStrip.innerHTML = '';
+        slotStrip.appendChild(frag);
+
+        const targetY = (sequence.length - 1) * ITEM_HEIGHT;
+        slotStrip.style.transform = 'translateY(0px)';
+
+        const startTime = performance.now();
+        let lastIdx = -1;
+
+        function animateSlot(currentTime) {
+          const progress = Math.min((currentTime - startTime) / 3000, 1);
+          const ease = 1 - Math.pow(1 - progress, 3);
+          const currentY = -targetY * ease;
+          
+          slotStrip.style.transform = `translateY(${currentY}px)`;
+
+          const currentIdx = Math.floor(Math.abs(currentY) / ITEM_HEIGHT);
+          if (currentIdx !== lastIdx && progress < 0.95) { vibrate(2); lastIdx = currentIdx; }
+
+          if (progress < 1) requestAnimationFrame(animateSlot);
+          else {
+            state.isSpinning = false;
+            overlay.classList.add('hidden');
+            btnSpin.disabled = false;
+            btnSpin.className = 'w-full py-4 bg-amber-500 hover:bg-amber-400 text-white text-[16px] font-black rounded-2xl shadow-xl shadow-amber-500/20 active:scale-[0.98] transition-all';
+            btnSpin.innerHTML = '🎲 不想吃這個，再抽一次！';
+            
+            // 顯示結果
+            vibrate([50, 50, 150]);
+            document.getElementById('result-name').textContent = winner.name;
+            const catEl = document.getElementById('result-cat');
+            catEl.textContent = winner.cat;
+            catEl.className = `inline-block text-xs font-bold px-3.5 py-1.5 rounded-xl mb-4 border ${CAT_THEMES[winner.cat]}`;
+            document.getElementById('result-price').textContent = PRICE_LABELS[winner.priceLevel];
+            document.getElementById('result-dist').textContent = DIST_LABELS[winner.distLevel];
+            document.getElementById('result-status-badge').innerHTML = getOpenStatus(winner.hours, winner.openDays).badge;
+            
+            const hoursBox = document.getElementById('result-hours-box');
+            if (winner.hours && winner.hours !== '?') {
+              document.getElementById('result-hours').textContent = winner.hours;
+              hoursBox.classList.remove('hidden');
+            } else hoursBox.classList.add('hidden');
+
+            const rc = document.getElementById('result-card');
+            rc.classList.remove('hidden');
+            requestAnimationFrame(() => rc.classList.remove('scale-95', 'opacity-0'));
+            confetti({ particleCount: 60, spread: 70, origin: { y: 0.6 }, colors: ['#f59e0b', '#fbbf24', '#fcd34d'] });
+          }
+        }
+        requestAnimationFrame(animateSlot);
+      };
+
+      // 初始化
+      initTheme();
+      renderFilters();
+      applyFilters();
+      renderManagerList();
+    })();
+  </script>
+</body>
+</html>
