@@ -2,11 +2,13 @@
 <html lang="zh-TW">
 <head>
   <meta charset="UTF-8">
+  <!-- 加入 viewport-fit=cover 確保支援 iOS 安全區域 -->
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>吃啥? - 北醫吃飯選擇障礙小幫手</title>
   
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <!-- 改為 default 避免 iOS 狀態列渲染異常模糊疊加 -->
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="theme-color" content="#f8fafc" media="(prefers-color-scheme: light)">
   <meta name="theme-color" content="#0f172a" media="(prefers-color-scheme: dark)">
   <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎲</text></svg>">
@@ -17,37 +19,19 @@
   </script>
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
   <style>
-    .slot-frame {
-      box-shadow: inset 0 8px 16px -4px rgba(0, 0, 0, 0.15), inset 0 -8px 16px -4px rgba(0, 0, 0, 0.15);
-    }
-    .dark .slot-frame {
-      box-shadow: inset 0 8px 16px -4px rgba(0, 0, 0, 0.4), inset 0 -8px 16px -4px rgba(0, 0, 0, 0.4);
-    }
+    .slot-frame { box-shadow: inset 0 8px 16px -4px rgba(0, 0, 0, 0.15), inset 0 -8px 16px -4px rgba(0, 0, 0, 0.15); }
+    .dark .slot-frame { box-shadow: inset 0 8px 16px -4px rgba(0, 0, 0, 0.4), inset 0 -8px 16px -4px rgba(0, 0, 0, 0.4); }
     .no-scrollbar::-webkit-scrollbar { display: none; }
     .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-    
-    /* 滾動邊緣漸層遮罩 */
-    .scroll-mask {
-      -webkit-mask-image: linear-gradient(to bottom, transparent, black 12px, black calc(100% - 12px), transparent);
-      mask-image: linear-gradient(to bottom, transparent, black 12px, black calc(100% - 12px), transparent);
-    }
-    
-    /* Grid 展開動畫輔助 */
-    .grid-accordion {
-      display: grid;
-      transition: grid-template-rows 0.3s ease-in-out;
-    }
+    .scroll-mask { -webkit-mask-image: linear-gradient(to bottom, transparent, black 12px, black calc(100% - 12px), transparent); mask-image: linear-gradient(to bottom, transparent, black 12px, black calc(100% - 12px), transparent); }
+    .grid-accordion { display: grid; transition: grid-template-rows 0.3s ease-in-out; }
   </style>
 </head>
 <body class="bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-200 min-h-screen pb-32 font-sans antialiased selection:bg-amber-200 dark:selection:bg-amber-700 transition-colors duration-300">
 
-  <!-- 全域防護遮罩 (抽籤時阻擋操作) -->
   <div id="spin-overlay" class="hidden fixed inset-0 z-[60] bg-transparent touch-none"></div>
-
-  <!-- Toast 提示容器 -->
   <div id="toast-container" class="fixed top-safe pt-4 left-1/2 -translate-x-1/2 z-[70] flex flex-col gap-2 pointer-events-none w-11/12 max-w-sm"></div>
 
-  <!-- 客製化確認對話框 -->
   <div id="confirm-modal" class="hidden fixed inset-0 z-[80] bg-slate-900/40 dark:bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 opacity-0 transition-opacity duration-300">
     <div id="confirm-box" class="bg-white dark:bg-slate-800 rounded-3xl p-6 w-full max-w-sm shadow-2xl transform scale-95 transition-transform duration-300 border border-slate-100 dark:border-slate-700">
       <h3 class="text-lg font-black text-slate-900 dark:text-white mb-2" id="confirm-title">提示</h3>
@@ -59,9 +43,9 @@
     </div>
   </div>
 
-  <div class="max-w-md mx-auto px-4 pt-6 pb-2 flex justify-between items-center">
-    <div></div>
-    <button id="theme-toggle" class="px-3 py-1.5 rounded-full bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-bold shadow-sm active:scale-95 transition-all flex items-center gap-1.5 border border-slate-300 dark:border-slate-700">
+  <!-- iOS 安全區域修正：動態 padding-top -->
+  <div class="max-w-md mx-auto px-4 pb-2 flex justify-end items-center" style="padding-top: max(env(safe-area-inset-top), 20px);">
+    <button id="theme-toggle" class="px-3 py-1.5 rounded-full bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-bold shadow-sm active:scale-95 transition-all flex items-center gap-1.5 border border-slate-300 dark:border-slate-700 relative z-50">
       <span id="theme-icon">☀️</span> <span>切換模式</span>
     </button>
   </div>
@@ -74,7 +58,6 @@
 
     <!-- 1. 篩選面板 -->
     <section class="bg-white dark:bg-slate-800 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-700 mb-6 transition-all duration-300 overflow-hidden">
-      
       <div id="filter-summary" class="hidden p-5 flex justify-between items-center cursor-pointer active:bg-slate-50 dark:active:bg-slate-700/50 transition-colors">
         <span class="text-sm font-bold text-slate-700 dark:text-slate-200 flex items-center gap-2">
           <span>🔍</span> <span>已套用篩選條件</span>
@@ -117,7 +100,12 @@
               </div>
             </div>
 
-            <div class="pt-2 border-t border-slate-100 dark:border-slate-700">
+            <!-- 新增：收藏專屬過濾與休息中過濾 -->
+            <div class="pt-2 border-t border-slate-100 dark:border-slate-700 space-y-3">
+              <label class="flex items-center gap-2 cursor-pointer w-fit group">
+                <input type="checkbox" id="filter-favorite-only" class="w-5 h-5 accent-amber-500 rounded cursor-pointer transition-transform group-active:scale-90">
+                <span class="text-sm font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5"><span class="text-amber-400 drop-shadow-sm text-lg">★</span> 僅從「我的收藏」中抽取</span>
+              </label>
               <label class="flex items-center gap-2 cursor-pointer w-fit group">
                 <input type="checkbox" id="filter-open-now" checked class="w-5 h-5 accent-amber-500 rounded cursor-pointer transition-transform group-active:scale-90">
                 <span class="text-sm font-bold text-slate-700 dark:text-slate-300">自動排除「目前休息中」的店家</span>
@@ -145,7 +133,6 @@
         <div class="absolute inset-x-0 top-0 h-8 bg-gradient-to-b from-slate-50 dark:from-slate-900 to-transparent pointer-events-none z-10"></div>
         <div class="absolute inset-x-0 bottom-0 h-8 bg-gradient-to-t from-slate-50 dark:from-slate-900 to-transparent pointer-events-none z-10"></div>
         <div class="absolute inset-x-3 top-7 h-14 border-y-[3px] border-dashed border-amber-400/60 dark:border-amber-500/40 pointer-events-none z-10"></div>
-        
         <div id="slot-strip" class="absolute left-0 w-full flex flex-col items-center will-change-transform" style="top: 28px;">
           <div class="h-14 flex items-center justify-center text-base font-black text-slate-700 dark:text-slate-200">準備抽籤</div>
         </div>
@@ -172,7 +159,7 @@
       </div>
     </div>
 
-    <!-- 4. 管理名單 (改用 Div + Grid 動畫) -->
+    <!-- 4. 管理名單 -->
     <div class="bg-white dark:bg-slate-800 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-700 mb-6 overflow-hidden">
       <div class="p-5 font-bold text-slate-700 dark:text-slate-200 cursor-pointer flex justify-between items-center active:bg-slate-50 dark:active:bg-slate-700/50 transition-colors" id="btn-toggle-manager">
         <span class="text-sm">📋 編輯口袋名單 (<span id="total-count">0</span>)</span>
@@ -209,7 +196,6 @@
                 </select>
               </div>
 
-              <!-- 加入 step="300" (5分鐘) 讓瀏覽器原生的時間選擇器以 5 分鐘為單位跳動 -->
               <div>
                 <label class="text-xs font-bold text-slate-500 dark:text-slate-400 block mb-1.5">營業時段 (選填)：</label>
                 <div class="flex items-center gap-2">
@@ -256,19 +242,26 @@
               </button>
             </form>
 
+            <!-- 名單總覽與搜尋 -->
             <div class="mt-6 border-t border-slate-100 dark:border-slate-700 pt-4">
               <div class="flex justify-between items-end mb-3">
-                <span class="text-xs font-bold text-slate-500 dark:text-slate-400">清單總覽</span>
-                <button id="btn-reset-data" class="text-[10px] text-slate-400 hover:text-rose-500 underline transition-colors">還原初始預設清單</button>
+                <span class="text-xs font-bold text-slate-500 dark:text-slate-400">清單總覽 (自動分類排序)</span>
+                <button id="btn-reset-data" class="text-[10px] text-slate-400 hover:text-rose-500 underline transition-colors">還原初始名單</button>
               </div>
-              <div id="full-store-list" class="space-y-2 max-h-60 overflow-y-auto no-scrollbar scroll-mask pr-1 pb-4"></div>
+              
+              <div class="mb-3 relative">
+                <span class="absolute inset-y-0 left-3 flex items-center text-slate-400">🔍</span>
+                <input type="text" id="input-search-store" placeholder="搜尋店名或分類..." class="w-full pl-9 pr-4 py-2.5 text-sm rounded-xl border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:border-amber-400 outline-none transition-colors">
+              </div>
+
+              <div id="full-store-list" class="space-y-2 max-h-72 overflow-y-auto no-scrollbar scroll-mask pr-1 pb-4"></div>
             </div>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- 5. 系統說明與選項定義 (已補回完整的說明區塊) -->
+    <!-- 5. 系統說明 -->
     <div class="bg-white dark:bg-slate-800 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-700 mb-6 overflow-hidden">
       <div class="p-5 font-bold text-slate-700 dark:text-slate-200 cursor-pointer flex justify-between items-center active:bg-slate-50 dark:active:bg-slate-700/50 transition-colors" id="btn-toggle-info">
         <span class="text-sm flex items-center gap-1.5"><span>📖</span> 系統說明與選項定義</span>
@@ -315,7 +308,6 @@
     </footer>
   </div>
 
-  <!-- 6. 底部懸浮操作列 -->
   <div class="fixed bottom-0 inset-x-0 p-4 bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl border-t border-slate-200/50 dark:border-slate-700/50 z-50 flex justify-center pb-safe">
     <div class="w-full max-w-md">
       <button id="btn-spin" class="w-full py-4 bg-amber-500 hover:bg-amber-400 text-white text-[16px] font-black rounded-2xl shadow-xl shadow-amber-500/20 dark:shadow-amber-900/20 active:scale-[0.98] transition-all">
@@ -325,7 +317,6 @@
   </div>
 
   <script>
-    // 預設資料庫保持不變
     const DEFAULT_DATA = [
       { id: "1", name: "人从众厚切牛排(台北北醫店)", cat: "其他", priceLevel: 3, distLevel: 1, openDays: [1,2,3,4,5,6,7], hours: "11:00–21:30" },
       { id: "2", name: "Creative Pasta 創義麵 信義店", cat: "其他", priceLevel: 2, distLevel: 1, openDays: [1,2,3,4,5,6,7], hours: "11:00–21:31" },
@@ -427,13 +418,16 @@
       { id: "98", name: "羅本家咖哩 信義店", cat: "飯類", priceLevel: 2, distLevel: 2, openDays: [1,2,3,4,5,6], hours: "11:30–14:00, 17:00–20:00" },
       { id: "99", name: "瑞麟美而美", cat: "早餐", priceLevel: 1, distLevel: 1, openDays: [1,2,3,4,5,6,7], hours: "06:40–18:00" },
       { id: "100", name: "豆花森", cat: "甜點", priceLevel: 1, distLevel: 1, openDays: [2,3,4,5,6,7], hours: "12:00–21:00" }
+
     ];
 
     (() => {
-      // --- 模組化資料與 UI 管理 ---
       class AppState {
         constructor() {
           this.restaurants = JSON.parse(localStorage.getItem('my_lunch_tmu_100')) || [...DEFAULT_DATA];
+          // 修正舊資料沒有 isFavorite 欄位的狀況
+          this.restaurants = this.restaurants.map(r => ({...r, isFavorite: r.isFavorite || false}));
+          
           this.selectedCats = new Set(["早餐", "飯類", "麵類", "點心", "手搖", "甜點", "宵夜", "其他"]);
           this.selectedMaxDist = 3;
           this.selectedPrices = new Set([1, 2, 3]);
@@ -462,7 +456,6 @@
       const DIST_LABELS = { 1: "超級近", 2: "走一下", 3: "有點遠" };
       const PRICE_LABELS = { 1: "＄ (≤150)", 2: "＄＄ (151-300)", 3: "＄＄＄ (>300)" };
 
-      // --- 工具函數 ---
       const escapeHTML = (str) => {
         if (!str) return '';
         const div = document.createElement('div');
@@ -472,51 +465,35 @@
 
       const vibrate = (pattern) => { if (navigator.vibrate) navigator.vibrate(pattern); };
 
-      // 自訂 Toast 元件
       function showToast(message, type = 'success') {
         const container = document.getElementById('toast-container');
         const toast = document.createElement('div');
         const bgColor = type === 'success' ? 'bg-slate-800 dark:bg-slate-700 text-white' : 'bg-rose-500 text-white';
         toast.className = `px-5 py-3 rounded-2xl text-sm font-bold shadow-xl transform transition-all duration-300 -translate-y-full opacity-0 ${bgColor} flex items-center justify-center pointer-events-auto`;
         toast.textContent = message;
-        
         container.appendChild(toast);
-        requestAnimationFrame(() => {
-          toast.classList.remove('-translate-y-full', 'opacity-0');
-        });
-        
+        requestAnimationFrame(() => toast.classList.remove('-translate-y-full', 'opacity-0'));
         setTimeout(() => {
           toast.classList.add('-translate-y-full', 'opacity-0');
           setTimeout(() => toast.remove(), 300);
         }, 2500);
       }
 
-      // 自訂 Confirm Modal
       function showConfirm(message, onConfirm) {
         const modal = document.getElementById('confirm-modal');
         const box = document.getElementById('confirm-box');
         document.getElementById('confirm-msg').textContent = message;
-        
         modal.classList.remove('hidden');
-        requestAnimationFrame(() => {
-          modal.classList.remove('opacity-0');
-          box.classList.remove('scale-95');
-        });
+        requestAnimationFrame(() => { modal.classList.remove('opacity-0'); box.classList.remove('scale-95'); });
 
         const closeModal = () => {
-          modal.classList.add('opacity-0');
-          box.classList.add('scale-95');
+          modal.classList.add('opacity-0'); box.classList.add('scale-95');
           setTimeout(() => modal.classList.add('hidden'), 300);
         };
-
         document.getElementById('btn-confirm-cancel').onclick = closeModal;
-        document.getElementById('btn-confirm-ok').onclick = () => {
-          closeModal();
-          onConfirm();
-        };
+        document.getElementById('btn-confirm-ok').onclick = () => { closeModal(); onConfirm(); };
       }
 
-      // 手風琴展開收合
       function toggleAccordion(wrapperId, forceClose = false) {
         const wrapper = document.getElementById(wrapperId);
         const isClosed = wrapper.style.gridTemplateRows === '0fr';
@@ -524,19 +501,14 @@
         return (isClosed && !forceClose);
       }
 
-      // 營業時間判斷
       function getOpenStatus(hoursStr, openDaysArr) {
         const now = new Date();
         const currentDay = now.getDay() || 7;
         const yesterdayDay = currentDay === 1 ? 7 : currentDay - 1;
         const currentMins = now.getHours() * 60 + now.getMinutes();
 
-        if (!hoursStr || hoursStr === '?') {
-          return { isOpen: null, badge: '<span class="text-slate-400 dark:text-slate-500">⚪ 狀態未知</span>' };
-        }
-        if (hoursStr.toLowerCase() === '24hr') {
-          return { isOpen: true, badge: '<span class="text-emerald-500 font-bold">🟢 營業中</span>' };
-        }
+        if (!hoursStr || hoursStr === '?') return { isOpen: null, badge: '<span class="text-slate-400 dark:text-slate-500">⚪ 狀態未知</span>' };
+        if (hoursStr.toLowerCase() === '24hr') return { isOpen: true, badge: '<span class="text-emerald-500 font-bold">🟢 營業中</span>' };
 
         let isCurrentlyOpen = false;
         let hasValidTime = false;
@@ -562,14 +534,10 @@
         return { isOpen: false, badge: '<span class="text-rose-500 font-bold">🔴 休息中</span>' };
       }
 
-      // --- UI 渲染與事件綁定 ---
       function initTheme() {
         const html = document.documentElement;
-        if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-          html.classList.add('dark');
-        } else {
-          html.classList.remove('dark');
-        }
+        if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) html.classList.add('dark');
+        else html.classList.remove('dark');
         document.getElementById('theme-icon').textContent = html.classList.contains('dark') ? '☀️' : '🌙';
         
         document.getElementById('theme-toggle').onclick = () => {
@@ -590,22 +558,19 @@
           btn.onclick = () => {
             vibrate(5);
             state.selectedCats.has(cat) ? state.selectedCats.delete(cat) : state.selectedCats.add(cat);
-            renderFilters();
-            applyFilters();
+            renderFilters(); applyFilters();
           };
           chipsContainer.appendChild(btn);
         });
 
         document.querySelectorAll('.filter-dist-btn').forEach(btn => {
-          const val = Number(btn.dataset.val);
-          btn.className = val === state.selectedMaxDist
+          btn.className = Number(btn.dataset.val) === state.selectedMaxDist
             ? 'filter-dist-btn py-2.5 text-xs rounded-2xl border border-amber-400 dark:border-amber-500 bg-amber-50 dark:bg-amber-900/30 text-amber-800 dark:text-amber-400 font-bold'
             : 'filter-dist-btn py-2.5 text-xs rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-500 font-medium';
         });
 
         document.querySelectorAll('.filter-price-btn').forEach(btn => {
-          const val = Number(btn.dataset.val);
-          btn.className = state.selectedPrices.has(val)
+          btn.className = state.selectedPrices.has(Number(btn.dataset.val))
             ? 'filter-price-btn py-2.5 text-xs rounded-2xl border border-amber-400 dark:border-amber-500 bg-amber-50 dark:bg-amber-900/30 text-amber-800 dark:text-amber-400 font-bold'
             : 'filter-price-btn py-2.5 text-xs rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-400 font-medium';
         });
@@ -613,7 +578,10 @@
 
       function applyFilters() {
         const onlyOpen = document.getElementById('filter-open-now').checked;
+        const favOnly = document.getElementById('filter-favorite-only').checked;
+
         state.filteredList = state.restaurants.filter(r => {
+          if (favOnly && !r.isFavorite) return false;
           if (!state.selectedCats.has(r.cat) || !state.selectedPrices.has(r.priceLevel) || r.distLevel > state.selectedMaxDist) return false;
           if (onlyOpen && getOpenStatus(r.hours, r.openDays).isOpen === false) return false;
           return true;
@@ -653,6 +621,7 @@
           div.className = "flex justify-between items-center text-slate-700 dark:text-slate-300 pb-2 border-b border-slate-100 dark:border-slate-700/50 last:border-0 last:pb-0";
           div.innerHTML = `
             <span class="font-bold truncate pr-2 flex items-center gap-1.5">
+              ${r.isFavorite ? '<span class="text-amber-500 text-xs drop-shadow-sm">★</span>' : ''}
               <span class="text-[10px] ${CAT_THEMES[r.cat].split(' ')[0]} ${CAT_THEMES[r.cat].split(' ')[1]} px-1.5 py-0.5 rounded-md border-0">${escapeHTML(r.cat)}</span>
               ${escapeHTML(r.name)}
             </span>
@@ -668,32 +637,60 @@
 
       function renderManagerList() {
         const container = document.getElementById('full-store-list');
-        document.getElementById('total-count').textContent = state.restaurants.length;
+        const keyword = document.getElementById('input-search-store').value.toLowerCase().trim();
+        
+        // 分類排序邏輯：優先比對 ALL_CATS 順序，同類別則用 ID（時間戳）排列，確保新項目排在最後
+        let displayList = [...state.restaurants];
+        displayList.sort((a, b) => {
+          const catA = ALL_CATS.indexOf(a.cat) > -1 ? ALL_CATS.indexOf(a.cat) : 99;
+          const catB = ALL_CATS.indexOf(b.cat) > -1 ? ALL_CATS.indexOf(b.cat) : 99;
+          if (catA !== catB) return catA - catB;
+          return Number(a.id) - Number(b.id);
+        });
+
+        // 搜尋過濾
+        if (keyword) {
+          displayList = displayList.filter(r => r.name.toLowerCase().includes(keyword) || r.cat.toLowerCase().includes(keyword));
+        }
+
+        document.getElementById('total-count').textContent = displayList.length;
         container.innerHTML = '';
         
         const frag = document.createDocumentFragment();
-        state.restaurants.forEach(r => {
+        displayList.forEach(r => {
           const div = document.createElement('div');
           div.className = "flex items-center justify-between p-3 rounded-2xl bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 shadow-sm";
           div.innerHTML = `
-            <div class="overflow-hidden pr-2">
-              <div class="flex items-center gap-1.5 truncate mb-1">
-                <span class="text-[10px] font-bold px-1.5 py-0.5 rounded border ${CAT_THEMES[r.cat]} shrink-0">${escapeHTML(r.cat)}</span>
-                <span class="font-bold text-slate-800 dark:text-slate-200 text-sm truncate">${escapeHTML(r.name)}</span>
-              </div>
-              <div class="text-[11px] text-slate-400 dark:text-slate-500 flex gap-2 font-medium">
-                <span>${DIST_LABELS[r.distLevel]} / ${PRICE_LABELS[r.priceLevel]}</span>
-                ${r.hours && r.hours !== '?' ? `<span class="truncate">🕒 ${escapeHTML(r.hours)}</span>` : ''}
+            <div class="flex items-center gap-3 overflow-hidden">
+              <button class="fav-btn flex-shrink-0 text-xl transition-transform active:scale-75 ${r.isFavorite ? 'text-amber-400 drop-shadow-sm' : 'text-slate-200 dark:text-slate-700'}">★</button>
+              <div class="overflow-hidden pr-2">
+                <div class="flex items-center gap-1.5 truncate mb-1">
+                  <span class="text-[10px] font-bold px-1.5 py-0.5 rounded border ${CAT_THEMES[r.cat]} shrink-0">${escapeHTML(r.cat)}</span>
+                  <span class="font-bold text-slate-800 dark:text-slate-200 text-sm truncate">${escapeHTML(r.name)}</span>
+                </div>
+                <div class="text-[11px] text-slate-400 dark:text-slate-500 flex gap-2 font-medium">
+                  <span>${DIST_LABELS[r.distLevel]} / ${PRICE_LABELS[r.priceLevel]}</span>
+                  ${r.hours && r.hours !== '?' ? `<span class="truncate">🕒 ${escapeHTML(r.hours)}</span>` : ''}
+                </div>
               </div>
             </div>
             <button class="delete-btn text-rose-500 dark:text-rose-400 text-xs font-bold px-3 py-2 bg-rose-50 dark:bg-rose-900/20 rounded-lg shrink-0 active:scale-95 transition-transform">刪除</button>
           `;
+          
+          // 綁定收藏事件
+          div.querySelector('.fav-btn').onclick = () => {
+            vibrate(5);
+            r.isFavorite = !r.isFavorite;
+            state.save();
+            renderManagerList();
+            applyFilters();
+          };
+
+          // 綁定刪除事件
           div.querySelector('.delete-btn').onclick = () => {
             showConfirm(`確定要刪除「${r.name}」嗎？`, () => {
               state.restaurants = state.restaurants.filter(item => item.id !== r.id);
-              state.save();
-              applyFilters();
-              renderManagerList();
+              state.save(); applyFilters(); renderManagerList();
               showToast('已刪除店家', 'success');
             });
           };
@@ -725,7 +722,11 @@
       };
 
       document.getElementById('filter-open-now').addEventListener('change', applyFilters);
+      document.getElementById('filter-favorite-only').addEventListener('change', applyFilters);
       
+      // 搜尋事件綁定
+      document.getElementById('input-search-store').addEventListener('input', renderManagerList);
+
       document.getElementById('btn-toggle-candidates').onclick = () => {
         const isOpen = toggleAccordion('candidate-wrapper');
         document.getElementById('btn-toggle-candidates').textContent = isOpen ? '收起名單' : '展開名單';
@@ -741,7 +742,6 @@
         document.getElementById('icon-info').style.transform = isOpen ? 'rotate(45deg)' : 'rotate(0deg)';
       };
 
-      // 新增店家邏輯
       document.querySelectorAll('.add-dist-btn').forEach(btn => {
         btn.onclick = () => {
           state.newStoreDist = Number(btn.dataset.val);
@@ -763,15 +763,16 @@
         const hoursStr = (tStart && tEnd) ? `${tStart}-${tEnd}` : '?';
 
         const newRest = {
-          id: Date.now().toString(),
+          id: Date.now().toString(), // 利用當下時間作為 ID
           name: document.getElementById('add-name').value.trim(),
           priceLevel: state.newStorePrice,
           distLevel: state.newStoreDist,
           cat: document.getElementById('add-cat').value,
           hours: hoursStr,
-          openDays: openDays.length ? openDays : [1,2,3,4,5,6,7]
+          openDays: openDays.length ? openDays : [1,2,3,4,5,6,7],
+          isFavorite: false
         };
-        state.restaurants.unshift(newRest);
+        state.restaurants.push(newRest); // push 放後面，排序時會因為 ID 時間較新而排在同分類最底下
         state.save();
         
         document.getElementById('form-add').reset();
@@ -783,7 +784,6 @@
         showToast('已成功新增至口袋名單！');
       };
 
-      // 匯出匯入還原
       document.getElementById('btn-export-data').onclick = () => {
         const blob = new Blob([JSON.stringify(state.restaurants, null, 2)], { type: "application/json" });
         const url = URL.createObjectURL(blob);
@@ -799,8 +799,8 @@
           try {
             const data = JSON.parse(event.target.result);
             if (Array.isArray(data) && data.length > 0 && data[0].name) {
-              state.restaurants = data; state.save();
-              applyFilters(); renderManagerList();
+              state.restaurants = data.map(r => ({...r, isFavorite: r.isFavorite || false})); 
+              state.save(); applyFilters(); renderManagerList();
               showToast('名單匯入成功！');
             } else throw new Error();
           } catch { showToast('檔案格式錯誤，請確認是否為有效 JSON', 'error'); }
@@ -811,13 +811,12 @@
 
       document.getElementById('btn-reset-data').onclick = () => {
         showConfirm('確定要還原成預設名單嗎？這將覆蓋您目前的所有資料。', () => {
-          state.restaurants = [...DEFAULT_DATA]; state.save();
-          applyFilters(); renderManagerList();
+          state.restaurants = [...DEFAULT_DATA].map(r => ({...r, isFavorite: false})); 
+          state.save(); applyFilters(); renderManagerList();
           showToast('已還原為預設名單');
         });
       };
 
-      // 抽籤邏輯
       const ITEM_HEIGHT = 56;
       document.getElementById('btn-spin').onclick = () => {
         if (state.isSpinning || state.filteredList.length === 0) return;
@@ -850,6 +849,7 @@
           div.innerHTML = `
             <span class="text-base font-black text-slate-800 dark:text-white truncate max-w-[280px]">${escapeHTML(item.name)}</span>
             <span class="text-[10px] font-bold tracking-wide mt-0.5 flex gap-1.5 items-center">
+               ${item.isFavorite ? '<span class="text-amber-500 text-[8px]">★</span>' : ''}
                <span class="px-1.5 rounded-md ${CAT_THEMES[item.cat].split(' ')[0]} ${CAT_THEMES[item.cat].split(' ')[1]} border-0">${escapeHTML(item.cat)}</span>
                <span class="text-slate-400 dark:text-slate-500">${DIST_LABELS[item.distLevel]}</span>
             </span>`;
@@ -882,7 +882,6 @@
             btnSpin.className = 'w-full py-4 bg-amber-500 hover:bg-amber-400 text-white text-[16px] font-black rounded-2xl shadow-xl shadow-amber-500/20 active:scale-[0.98] transition-all';
             btnSpin.innerHTML = '🎲 不想吃這個，再抽一次！';
             
-            // 顯示結果
             vibrate([50, 50, 150]);
             document.getElementById('result-name').textContent = winner.name;
             const catEl = document.getElementById('result-cat');
@@ -907,11 +906,7 @@
         requestAnimationFrame(animateSlot);
       };
 
-      // 初始化
-      initTheme();
-      renderFilters();
-      applyFilters();
-      renderManagerList();
+      initTheme(); renderFilters(); applyFilters(); renderManagerList();
     })();
   </script>
 </body>
