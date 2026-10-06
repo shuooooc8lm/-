@@ -1,14 +1,13 @@
 <!DOCTYPE html>
-<html lang="zh-TW" class="bg-slate-50 dark:bg-slate-900 transition-colors duration-300">
+<html lang="zh-TW">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>吃啥? - 北醫吃飯選擇障礙小幫手 v1.1.6 (Bugfix)</title>
+  <title>吃啥? - 北醫吃飯選擇障礙小幫手 v1.1.8</title>
   
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="theme-color" content="#f8fafc" media="(prefers-color-scheme: light)">
-  <meta name="theme-color" content="#0f172a" media="(prefers-color-scheme: dark)">
+  <meta name="theme-color" id="theme-color-meta" content="#f8fafc">
   <link rel="apple-touch-icon" href="app-icon.png">
   <link rel="icon" type="image/png" href="app-icon.png">
   
@@ -18,6 +17,10 @@
   </script>
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
   <style>
+    /* 強制設定最底層的背景色，解決 Tailwind 在 html 標籤上暗色模式失效導致的白邊 Bug */
+    html { background-color: #f8fafc; transition: background-color 0.3s ease-in-out; }
+    html.dark { background-color: #0f172a; }
+
     .slot-frame { box-shadow: inset 0 8px 16px -4px rgba(0, 0, 0, 0.15), inset 0 -8px 16px -4px rgba(0, 0, 0, 0.15); }
     .dark .slot-frame { box-shadow: inset 0 8px 16px -4px rgba(0, 0, 0, 0.4), inset 0 -8px 16px -4px rgba(0, 0, 0, 0.4); }
     .no-scrollbar::-webkit-scrollbar { display: none; }
@@ -53,7 +56,8 @@
     </div>
   </div>
 
-  <div class="max-w-md mx-auto px-4 pb-2 flex justify-end items-center" style="margin-top: calc(env(safe-area-inset-top) + 16px);">
+  <!-- 修改 margin-top 為 padding-top，解決 CSS Margin Collapsing 造成的頂部白條破洞 -->
+  <div class="max-w-md mx-auto px-4 pb-2 flex justify-end items-center" style="padding-top: calc(env(safe-area-inset-top) + 16px);">
     <button id="theme-toggle" class="px-3 py-1.5 rounded-full bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-bold shadow-sm active:scale-95 transition-all flex items-center gap-1.5 border border-slate-300 dark:border-slate-700 relative z-50">
       <span id="theme-icon">☀️</span> <span>切換模式</span>
     </button>
@@ -169,7 +173,7 @@
       </div>
     </div>
 
-    <!-- 4. 我的店家 (常駐顯示) -->
+    <!-- 4. 我的店家 -->
     <div class="bg-white dark:bg-slate-800 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-700 mb-6 p-5">
       <div class="flex justify-between items-center mb-3 pb-3 border-b border-slate-100 dark:border-slate-700/50">
         <span class="text-sm font-bold text-slate-700 dark:text-slate-200">📋 我的店家</span>
@@ -330,7 +334,7 @@
     </div>
 
     <footer class="text-slate-400 dark:text-slate-500 text-[10px] text-center space-y-1 mb-6">
-      <div class="font-bold">© 2026 TMU Campus Food Decider v1.1.6</div>
+      <div class="font-bold">© 2026 TMU Campus Food Decider v1.1.8</div>
       <div>相關資料來源為網路資料 · 僅供參考</div>
     </footer>
   </div>
@@ -493,7 +497,6 @@
             dataList = [...DEFAULT_DATA];
           }
 
-          // 資料清洗，將上一版舊有的其他正餐轉換回其他
           this.restaurants = dataList.map(r => ({
             ...r,
             cat: r.cat === '其他正餐' ? '其他' : r.cat,
@@ -598,21 +601,29 @@
 
       function initTheme() {
         const html = document.documentElement;
-        if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) html.classList.add('dark');
-        else html.classList.remove('dark');
-        document.getElementById('theme-icon').textContent = html.classList.contains('dark') ? '☀️' : '🌙';
+        const metaThemeColor = document.getElementById('theme-color-meta');
+        
+        const updateThemeUI = (isDark) => {
+          if (isDark) html.classList.add('dark');
+          else html.classList.remove('dark');
+          document.getElementById('theme-icon').textContent = isDark ? '☀️' : '🌙';
+          if (metaThemeColor) {
+            metaThemeColor.setAttribute('content', isDark ? '#0f172a' : '#f8fafc');
+          }
+        };
+
+        const isDark = localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches);
+        updateThemeUI(isDark);
         
         document.getElementById('theme-toggle').onclick = () => {
-          html.classList.toggle('dark');
-          localStorage.theme = html.classList.contains('dark') ? 'dark' : 'light';
-          document.getElementById('theme-icon').textContent = html.classList.contains('dark') ? '☀️' : '🌙';
+          const willBeDark = !html.classList.contains('dark');
+          localStorage.theme = willBeDark ? 'dark' : 'light';
+          updateThemeUI(willBeDark);
         };
       }
 
       function renderFilters() {
         const chipsContainer = document.getElementById('category-chips');
-        
-        // 依照正餐與非正餐換行區分
         const mealCats = ["飯類", "麵類", "其他", "早餐"];
         const snackCats = ["點心", "手搖", "甜點", "宵夜"];
 
@@ -684,6 +695,11 @@
           }
         }
         renderCandidates();
+        
+        if (!state.isSpinning) {
+            document.getElementById('result-card').classList.add('hidden', 'scale-95', 'opacity-0');
+            slotStrip.style.transform = 'translateY(0px)';
+        }
       }
 
       function renderCandidates() {
@@ -714,7 +730,6 @@
         list.appendChild(frag);
       }
 
-      // 新增：背景靜默更新函式，只更新資料庫長度與候選清單，不重置 UI (供收藏按鈕專用)
       function silentUpdateLists() {
         const onlyOpen = document.getElementById('filter-open-now').checked;
         const favOnly = document.getElementById('filter-favorite-only').checked;
@@ -735,7 +750,6 @@
           btnSpin.className = 'w-full py-4 bg-slate-200 dark:bg-slate-800 text-slate-400 dark:text-slate-500 text-[16px] font-bold rounded-2xl shadow-none cursor-not-allowed transition-all';
           btnSpin.innerHTML = '條件太嚴苛了 😕';
           
-          // 如果列表變成空，強制隱藏結果卡並重置拉霸機
           document.getElementById('result-card').classList.add('hidden', 'scale-95', 'opacity-0');
           const slotStrip = document.getElementById('slot-strip');
           slotStrip.innerHTML = '<div class="h-14 flex items-center justify-center text-sm font-bold text-rose-500 dark:text-rose-400">無符合選項</div>';
@@ -743,7 +757,6 @@
         } else {
           btnSpin.disabled = false;
           btnSpin.className = 'w-full py-4 bg-amber-500 hover:bg-amber-400 text-white text-[16px] font-black rounded-2xl shadow-xl shadow-amber-500/20 active:scale-[0.98] transition-all';
-          // 確保如果是隱藏狀態顯示抽選，顯示狀態則保留再抽一次
           if(document.getElementById('result-card').classList.contains('hidden')) {
               btnSpin.innerHTML = '🎲 隨機抽選!';
           } else {
@@ -797,9 +810,8 @@
             r.isFavorite = !r.isFavorite;
             state.save();
             renderManagerList();
-            silentUpdateLists(); // 使用靜默更新代替完整 applyFilters
+            silentUpdateLists();
             
-            // 同步更新結果卡片上的星星狀態
             if (currentWinner && currentWinner.id === r.id) {
                const resFavBtn = document.getElementById('btn-result-fav');
                if(resFavBtn) {
@@ -826,22 +838,6 @@
         state.selectedCats = state.selectedCats.size === ALL_CATS.length ? new Set() : new Set(ALL_CATS);
         renderFilters(); applyFilters(); vibrate(10);
       };
-
-      // 改寫原本綁定的 applyFilters，當條件更動時要隱藏結果卡，強制重置狀態
-      const originalApplyFilters = applyFilters;
-      applyFilters = function() {
-        originalApplyFilters();
-        if (!state.isSpinning) {
-            document.getElementById('result-card').classList.add('hidden', 'scale-95', 'opacity-0');
-            const slotStrip = document.getElementById('slot-strip');
-            if (state.filteredList.length === 0) {
-                slotStrip.innerHTML = '<div class="h-14 flex items-center justify-center text-sm font-bold text-rose-500 dark:text-rose-400">無符合選項</div>';
-            } else {
-                slotStrip.innerHTML = `<div class="h-14 flex items-center justify-center"><span class="text-[15px] font-black text-slate-700 dark:text-slate-300">準備抽籤</span></div>`;
-            }
-            slotStrip.style.transform = 'translateY(0px)'; // 強制歸零
-        }
-      }
 
       document.querySelectorAll('.filter-dist-btn').forEach(btn => {
         btn.onclick = () => { state.selectedMaxDist = Number(btn.dataset.val); renderFilters(); applyFilters(); vibrate(5); };
@@ -1067,7 +1063,7 @@
               state.save();
               updateResultFavBtnUI();
               renderManagerList(); 
-              silentUpdateLists(); // 靜默更新
+              silentUpdateLists(); 
             };
 
             const rc = document.getElementById('result-card');
