@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="zh-TW">
+<html lang="zh-TW" class="bg-slate-50 dark:bg-slate-900 transition-colors duration-300">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>吃啥? - 北醫吃飯選擇障礙小幫手 v1.1.6</title>
+  <title>吃啥? - 北醫吃飯選擇障礙小幫手 v1.1.6 (Bugfix)</title>
   
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -82,7 +82,6 @@
                 <label class="text-sm font-bold text-slate-700 dark:text-slate-300">想吃哪類？</label>
                 <button id="btn-toggle-all-cats" class="text-xs text-amber-600 dark:text-amber-400 hover:text-amber-700 font-bold active:scale-95 transition-transform">全部取消</button>
               </div>
-              <!-- 改為用容器包裝分類按鈕，供 JS 渲染多行 -->
               <div id="category-chips" class="flex flex-col gap-2"></div>
             </div>
 
@@ -170,7 +169,7 @@
       </div>
     </div>
 
-    <!-- 4. 我的店家 (常駐顯示，弱化標題，專注內容) -->
+    <!-- 4. 我的店家 (常駐顯示) -->
     <div class="bg-white dark:bg-slate-800 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-700 mb-6 p-5">
       <div class="flex justify-between items-center mb-3 pb-3 border-b border-slate-100 dark:border-slate-700/50">
         <span class="text-sm font-bold text-slate-700 dark:text-slate-200">📋 我的店家</span>
@@ -185,7 +184,7 @@
       <div id="full-store-list" class="space-y-2 max-h-[300px] overflow-y-auto no-scrollbar scroll-mask pr-1 pb-2"></div>
     </div>
 
-    <!-- 5. 編輯與管理口袋名單 (預設收合) -->
+    <!-- 5. 編輯與管理口袋名單 -->
     <div class="bg-white dark:bg-slate-800 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-700 mb-6 overflow-hidden">
       <div class="p-5 font-bold text-slate-700 dark:text-slate-200 cursor-pointer flex justify-between items-center active:bg-slate-50 dark:active:bg-slate-700/50 transition-colors" id="btn-toggle-manager">
         <span class="text-sm">➕ 新增店家與進階管理</span>
@@ -715,6 +714,44 @@
         list.appendChild(frag);
       }
 
+      // 新增：背景靜默更新函式，只更新資料庫長度與候選清單，不重置 UI (供收藏按鈕專用)
+      function silentUpdateLists() {
+        const onlyOpen = document.getElementById('filter-open-now').checked;
+        const favOnly = document.getElementById('filter-favorite-only').checked;
+
+        state.filteredList = state.restaurants.filter(r => {
+          if (favOnly && !r.isFavorite) return false;
+          if (!state.selectedCats.has(r.cat) || !state.selectedPrices.has(r.priceLevel) || r.distLevel > state.selectedMaxDist) return false;
+          if (onlyOpen && getOpenStatus(r.hours, r.openDays).isOpen === false) return false;
+          return true;
+        });
+
+        document.getElementById('candidate-count').textContent = state.filteredList.length;
+        renderCandidates();
+
+        const btnSpin = document.getElementById('btn-spin');
+        if (state.filteredList.length === 0) {
+          btnSpin.disabled = true;
+          btnSpin.className = 'w-full py-4 bg-slate-200 dark:bg-slate-800 text-slate-400 dark:text-slate-500 text-[16px] font-bold rounded-2xl shadow-none cursor-not-allowed transition-all';
+          btnSpin.innerHTML = '條件太嚴苛了 😕';
+          
+          // 如果列表變成空，強制隱藏結果卡並重置拉霸機
+          document.getElementById('result-card').classList.add('hidden', 'scale-95', 'opacity-0');
+          const slotStrip = document.getElementById('slot-strip');
+          slotStrip.innerHTML = '<div class="h-14 flex items-center justify-center text-sm font-bold text-rose-500 dark:text-rose-400">無符合選項</div>';
+          slotStrip.style.transform = 'translateY(0px)';
+        } else {
+          btnSpin.disabled = false;
+          btnSpin.className = 'w-full py-4 bg-amber-500 hover:bg-amber-400 text-white text-[16px] font-black rounded-2xl shadow-xl shadow-amber-500/20 active:scale-[0.98] transition-all';
+          // 確保如果是隱藏狀態顯示抽選，顯示狀態則保留再抽一次
+          if(document.getElementById('result-card').classList.contains('hidden')) {
+              btnSpin.innerHTML = '🎲 隨機抽選!';
+          } else {
+              btnSpin.innerHTML = '🎲 不想吃這個，再抽一次！';
+          }
+        }
+      }
+
       function renderManagerList() {
         const container = document.getElementById('full-store-list');
         const keyword = document.getElementById('input-search-store').value.toLowerCase().trim();
@@ -760,7 +797,17 @@
             r.isFavorite = !r.isFavorite;
             state.save();
             renderManagerList();
-            applyFilters();
+            silentUpdateLists(); // 使用靜默更新代替完整 applyFilters
+            
+            // 同步更新結果卡片上的星星狀態
+            if (currentWinner && currentWinner.id === r.id) {
+               const resFavBtn = document.getElementById('btn-result-fav');
+               if(resFavBtn) {
+                   resFavBtn.className = r.isFavorite 
+                     ? "text-3xl transition-transform active:scale-75 drop-shadow-sm p-1 text-amber-400" 
+                     : "text-3xl transition-transform active:scale-75 drop-shadow-sm p-1 text-slate-200 dark:text-slate-700 hover:text-slate-300";
+               }
+            }
           };
 
           div.querySelector('.delete-btn').onclick = () => {
@@ -779,6 +826,22 @@
         state.selectedCats = state.selectedCats.size === ALL_CATS.length ? new Set() : new Set(ALL_CATS);
         renderFilters(); applyFilters(); vibrate(10);
       };
+
+      // 改寫原本綁定的 applyFilters，當條件更動時要隱藏結果卡，強制重置狀態
+      const originalApplyFilters = applyFilters;
+      applyFilters = function() {
+        originalApplyFilters();
+        if (!state.isSpinning) {
+            document.getElementById('result-card').classList.add('hidden', 'scale-95', 'opacity-0');
+            const slotStrip = document.getElementById('slot-strip');
+            if (state.filteredList.length === 0) {
+                slotStrip.innerHTML = '<div class="h-14 flex items-center justify-center text-sm font-bold text-rose-500 dark:text-rose-400">無符合選項</div>';
+            } else {
+                slotStrip.innerHTML = `<div class="h-14 flex items-center justify-center"><span class="text-[15px] font-black text-slate-700 dark:text-slate-300">準備抽籤</span></div>`;
+            }
+            slotStrip.style.transform = 'translateY(0px)'; // 強制歸零
+        }
+      }
 
       document.querySelectorAll('.filter-dist-btn').forEach(btn => {
         btn.onclick = () => { state.selectedMaxDist = Number(btn.dataset.val); renderFilters(); applyFilters(); vibrate(5); };
@@ -1004,7 +1067,7 @@
               state.save();
               updateResultFavBtnUI();
               renderManagerList(); 
-              applyFilters();      
+              silentUpdateLists(); // 靜默更新
             };
 
             const rc = document.getElementById('result-card');
